@@ -1,0 +1,8 @@
+\x1b[?25l\x1b[32mClaude Code v1.2.3\x1b[0m
+
+\x1b[36mClaude\x1b[0m is processing your request...
+
+Analyzing files in the repository...
+Reading internal/adapter/claudecode/
+Error: unexpected end of stream
+Process exited with code 1

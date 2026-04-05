@@ -1,0 +1,9 @@
+\x1b[?25l\x1b[32mClaude Code v1.2.3\x1b[0m
+
+\x1b[36mClaude\x1b[0m is about to run the following command:
+
+  rm -rf /tmp/old-build
+
+\x1b[33mThis action cannot be undone.\x1b[0m
+
+Do you want to continue? [y/n]
