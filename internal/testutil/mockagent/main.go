@@ -25,8 +25,12 @@ func main() {
 	switch mode {
 	case "blocked":
 		fmt.Fprintln(os.Stdout, "Continue? (y/n)")
+		// Block waiting for input so the orchestrator can detect the idle prompt.
+		_, _ = reader.ReadString('\n')
 	case "auth":
 		fmt.Fprintln(os.Stdout, "Authentication required. Please log in.")
+		// Block waiting for input so the orchestrator can detect the idle prompt.
+		_, _ = reader.ReadString('\n')
 	case "rate_limit":
 		fmt.Fprintln(os.Stdout, "You've hit your session limit")
 	case "ansi":
