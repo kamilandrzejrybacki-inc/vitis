@@ -2,6 +2,8 @@ package orchestrator
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,7 +37,7 @@ func (s *fakeStore) AppendStreamEvent(event model.StoredStreamEvent) error      
 func (s *fakeStore) Close() error                                                { return nil }
 
 type fakeRuntime struct {
-	process *fakeProcess
+	process terminal.PseudoTerminalProcess
 }
 
 func (r *fakeRuntime) Spawn(spec adapter.SpawnSpec) (terminal.PseudoTerminalProcess, error) {
@@ -65,6 +67,115 @@ func (p *fakeProcess) Write(data []byte) (int, error) {
 func (p *fakeProcess) Output() <-chan model.StreamEvent  { return p.output }
 func (p *fakeProcess) Done() <-chan model.ExitResult     { return p.done }
 func (p *fakeProcess) Terminate(gracePeriodMs int) error { return nil }
+
+// errorRuntime returns an error from Spawn, simulating a missing/nonexistent binary.
+type errorRuntime struct{}
+
+func (e *errorRuntime) Spawn(_ adapter.SpawnSpec) (terminal.PseudoTerminalProcess, error) {
+	return nil, fmt.Errorf("spawn: executable not found")
+}
+
+// blockingProcess never sends on Done() or Output(), simulating a hung process.
+type blockingProcess struct {
+	output chan model.StreamEvent
+	done   chan model.ExitResult
+}
+
+func newBlockingProcess() *blockingProcess {
+	return &blockingProcess{
+		output: make(chan model.StreamEvent),
+		done:   make(chan model.ExitResult),
+	}
+}
+
+func (p *blockingProcess) Write(_ []byte) (int, error)   { return 0, nil }
+func (p *blockingProcess) Output() <-chan model.StreamEvent { return p.output }
+func (p *blockingProcess) Done() <-chan model.ExitResult  { return p.done }
+func (p *blockingProcess) Terminate(_ int) error          { return nil }
+
+func TestRunProviderNotFound(t *testing.T) {
+	store := newFakeStore()
+	process := newFakeProcess()
+	deps := Dependencies{
+		Adapters: adapter.NewRegistry(claudecode.New()),
+		Runtime:  &fakeRuntime{process: process},
+		Store:    store,
+	}
+	result, err := Run(context.Background(), model.RunRequest{
+		Provider: "nonexistent-provider",
+		Prompt:   "hello",
+	}, deps)
+	if err == nil {
+		t.Fatal("expected error for unknown provider, got nil")
+	}
+	if result != nil {
+		t.Fatalf("expected nil result, got %+v", result)
+	}
+	if !strings.Contains(err.Error(), "nonexistent-provider") {
+		t.Fatalf("expected error to mention provider name; got: %v", err)
+	}
+	runErr, ok := err.(*model.RunError)
+	if !ok {
+		t.Fatalf("expected *model.RunError, got %T", err)
+	}
+	if runErr.Code != model.ErrorProvider {
+		t.Fatalf("expected error code %s, got %s", model.ErrorProvider, runErr.Code)
+	}
+}
+
+func TestRunSpawnFailure(t *testing.T) {
+	store := newFakeStore()
+	deps := Dependencies{
+		Adapters: adapter.NewRegistry(claudecode.New()),
+		Runtime:  &errorRuntime{},
+		Store:    store,
+	}
+	result, err := Run(context.Background(), model.RunRequest{
+		Provider: "claude-code",
+		Prompt:   "hello",
+	}, deps)
+	if err == nil {
+		t.Fatal("expected error when spawn fails, got nil")
+	}
+	if result != nil {
+		t.Fatalf("expected nil result, got %+v", result)
+	}
+	runErr, ok := err.(*model.RunError)
+	if !ok {
+		t.Fatalf("expected *model.RunError, got %T", err)
+	}
+	if runErr.Code != model.ErrorSpawn {
+		t.Fatalf("expected error code %s, got %s", model.ErrorSpawn, runErr.Code)
+	}
+}
+
+func TestRunTimeout(t *testing.T) {
+	store := newFakeStore()
+	process := newBlockingProcess()
+	deps := Dependencies{
+		Adapters: adapter.NewRegistry(claudecode.New()),
+		Runtime:  &fakeRuntime{process: process},
+		Store:    store,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	result, err := Run(ctx, model.RunRequest{
+		Provider:   "claude-code",
+		Prompt:     "hello",
+		TimeoutSec: 600,
+	}, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected result, got nil")
+	}
+	if result.Status != model.RunTimeout {
+		t.Fatalf("expected status %s, got %s", model.RunTimeout, result.Status)
+	}
+}
 
 func TestRunHappyPath(t *testing.T) {
 	store := newFakeStore()
