@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
@@ -168,4 +167,3 @@ func (s *Store) Close() error {
 	return nil
 }
 
-func _timePtr(t time.Time) *time.Time { return &t }

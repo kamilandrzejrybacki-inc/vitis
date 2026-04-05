@@ -24,7 +24,7 @@ func New(root string, debugRaw bool) (*Store, error) {
 	}
 	s := &Store{root: root, debugRaw: debugRaw}
 	for _, dir := range []string{s.sessionsDir(), s.turnsDir(), s.rawDir()} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("mkdir %s: %w", dir, err)
 		}
 	}
@@ -148,7 +148,7 @@ func (s *Store) writeJSONAtomic(path string, value any) error {
 	if err != nil {
 		return fmt.Errorf("marshal json: %w", err)
 	}
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return fmt.Errorf("write temp file: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
@@ -169,7 +169,7 @@ func (s *Store) readJSON(path string, dest any) error {
 }
 
 func (s *Store) appendJSONL(path string, value any) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("open jsonl: %w", err)
 	}

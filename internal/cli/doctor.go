@@ -13,7 +13,7 @@ import (
 	"github.com/kamilandrzejrybacki-inc/clank/internal/util"
 )
 
-func DoctorCommand(_ context.Context, args []string, stdout, stderr io.Writer) int {
+func DoctorCommand(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	var provider string
@@ -34,7 +34,7 @@ func DoctorCommand(_ context.Context, args []string, stdout, stderr io.Writer) i
 		return 1
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	cmdArgs := append(args, "--version")
