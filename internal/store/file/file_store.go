@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
@@ -16,6 +17,7 @@ import (
 type Store struct {
 	root     string
 	debugRaw bool
+	mu       sync.Mutex
 }
 
 func New(root string, debugRaw bool) (*Store, error) {
@@ -32,10 +34,14 @@ func New(root string, debugRaw bool) (*Store, error) {
 }
 
 func (s *Store) CreateSession(session model.Session) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.writeJSONAtomic(s.sessionPath(session.ID), session)
 }
 
 func (s *Store) UpdateSession(sessionID string, patch model.SessionPatch) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var session model.Session
 	if err := s.readJSON(s.sessionPath(sessionID), &session); err != nil {
 		return err
@@ -82,10 +88,14 @@ func (s *Store) UpdateSession(sessionID string, patch model.SessionPatch) error 
 }
 
 func (s *Store) AppendTurn(turn model.Turn) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.appendJSONL(s.turnPath(turn.SessionID), turn)
 }
 
 func (s *Store) PeekTurns(sessionID string, lastN int) ([]model.Turn, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	file, err := os.Open(s.turnPath(sessionID))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -116,6 +126,8 @@ func (s *Store) PeekTurns(sessionID string, lastN int) ([]model.Turn, error) {
 }
 
 func (s *Store) AppendStreamEvent(event model.StoredStreamEvent) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if !s.debugRaw {
 		return nil
 	}
