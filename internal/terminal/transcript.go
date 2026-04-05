@@ -45,7 +45,9 @@ func (t *Transcript) Append(event model.StreamEvent) {
 
 	t.tail = append(t.tail, event.Data...)
 	if len(t.tail) > t.tailCapacity {
-		t.tail = append([]byte(nil), t.tail[len(t.tail)-t.tailCapacity:]...)
+		fresh := make([]byte, t.tailCapacity)
+		copy(fresh, t.tail[len(t.tail)-t.tailCapacity:])
+		t.tail = fresh
 	}
 }
 
