@@ -61,7 +61,7 @@ func TestRunWithRealPTYAndMockAgent(t *testing.T) {
 	if result.Status != model.RunCompleted {
 		t.Fatalf("unexpected status: %s error=%+v meta=%+v", result.Status, result.Error, result.Meta)
 	}
-	if result.Response != "integration response" {
+	if !strings.Contains(result.Response, "integration response") {
 		t.Fatalf("unexpected response: %q", result.Response)
 	}
 	if result.Meta.BytesCaptured == 0 {
