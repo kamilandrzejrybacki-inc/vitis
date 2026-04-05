@@ -37,22 +37,30 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fs.StringVar(&req.HomeDir, "home-dir", "", "home directory override")
 
 	if err := fs.Parse(args); err != nil {
-		_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error()))
+		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error())); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+		}
 		return 2
 	}
 
 	if req.LogBackend != "file" && req.LogBackend != "db" {
-		_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, "log-backend must be file or db"))
+		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, "log-backend must be file or db")); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+		}
 		return 2
 	}
 	if req.LogBackend == "db" && req.DatabaseURL == "" {
-		_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, "database-url is required when log-backend=db"))
+		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, "database-url is required when log-backend=db")); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+		}
 		return 2
 	}
 
 	store, err := buildStore(ctx, req)
 	if err != nil {
-		_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error()))
+		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error())); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+		}
 		return 2
 	}
 	defer store.Close()
@@ -75,7 +83,9 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		if !ok {
 			runErr = &model.RunError{Code: model.ErrorInternal, Message: err.Error()}
 		}
-		_ = WriteJSON(stdout, ErrorResult(runErr.Code, runErr.Message))
+		if writeErr := WriteJSON(stdout, ErrorResult(runErr.Code, runErr.Message)); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+		}
 		return 1
 	}
 

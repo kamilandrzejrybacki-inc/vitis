@@ -4,12 +4,17 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 func LoadEnvFile(path string) (map[string]string, error) {
 	if path == "" {
 		return map[string]string{}, nil
+	}
+
+	if strings.Contains(filepath.Clean(path), "..") {
+		return nil, fmt.Errorf("env-file path must not contain '..': %s", path)
 	}
 
 	file, err := os.Open(path)

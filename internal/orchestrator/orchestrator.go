@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
@@ -66,19 +68,15 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 		TerminalCols: intPtr(request.TerminalCols),
 		TerminalRows: intPtr(request.TerminalRows),
 	}
-	if err := deps.Store.CreateSession(session); err != nil {
-		return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
-	}
-
 	spec := provider.BuildSpawnSpec(request.Cwd, env, homeDir, request.TerminalCols, request.TerminalRows)
 	process, err := deps.Runtime.Spawn(spec)
 	if err != nil {
-		patchStatus := model.RunFailed
-		_ = deps.Store.UpdateSession(sessionID, model.SessionPatch{Status: &patchStatus})
-		return resultWithError(sessionID, request.Provider, model.RunFailed, request.PeekLast, deps, &model.RunError{
-			Code:    model.ErrorSpawn,
-			Message: err.Error(),
-		})
+		return nil, &model.RunError{Code: model.ErrorSpawn, Message: err.Error()}
+	}
+
+	if err := deps.Store.CreateSession(session); err != nil {
+		_ = process.Terminate(500)
+		return nil, &model.RunError{Code: model.ErrorStore, Message: fmt.Errorf("create session: %w", err).Error()}
 	}
 
 	userTurn := model.Turn{
@@ -187,6 +185,9 @@ func resolvePrompt(request model.RunRequest) (string, error) {
 	case request.Prompt != "":
 		return request.Prompt, nil
 	case request.PromptFile != "":
+		if strings.Contains(filepath.Clean(request.PromptFile), "..") {
+			return "", fmt.Errorf("prompt-file path must not contain '..': %s", request.PromptFile)
+		}
 		data, err := os.ReadFile(request.PromptFile)
 		if err != nil {
 			return "", &model.RunError{Code: model.ErrorInput, Message: fmt.Sprintf("read prompt file: %v", err)}

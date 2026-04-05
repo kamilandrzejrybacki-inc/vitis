@@ -30,6 +30,7 @@ func waitForCompletionLoop(
 	defer ticker.Stop()
 
 	var exitCode *int
+	outputCh := process.Output()
 
 	for {
 		select {
@@ -43,8 +44,9 @@ func waitForCompletionLoop(
 				Evidence:   []string{"timeout"},
 			}
 			return &completionResult{Observation: observation, Transcript: transcript, ExitCode: exitCode}, nil
-		case event, ok := <-process.Output():
+		case event, ok := <-outputCh:
 			if !ok {
+				outputCh = nil
 				continue
 			}
 			transcript.Append(event)
@@ -57,10 +59,11 @@ func waitForCompletionLoop(
 				})
 			}
 		case done, ok := <-process.Done():
-			if ok {
-				exitCode = &done.Code
-				transcript.RecordExit(done.Code)
+			if !ok {
+				done = model.ExitResult{Code: 0}
 			}
+			exitCode = &done.Code
+			transcript.RecordExit(done.Code)
 		case <-ticker.C:
 			observation := provider.Observe(adapter.CompletionContext{
 				RawTail:        transcript.TailRaw(),
