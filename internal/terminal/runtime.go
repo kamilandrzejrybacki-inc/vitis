@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"syscall"
 
 	"github.com/creack/pty"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
@@ -44,7 +43,6 @@ func (r *Runtime) Spawn(spec adapter.SpawnSpec) (PseudoTerminalProcess, error) {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 	cmd.Env = env
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	size := &pty.Winsize{
 		Rows: uint16(spec.TerminalRows),
