@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -157,7 +156,7 @@ func (s *Store) AppendStreamEvent(event model.StoredStreamEvent) error {
 	_, err := s.pool.Exec(context.Background(),
 		`INSERT INTO stream_events (session_id, timestamp, kind, chunk_raw, chunk_text, chunk_encoding)
 		 VALUES ($1,$2,$3,$4,$5,$6)`,
-		event.SessionID, event.Timestamp, string(event.Kind), event.Data, base64.StdEncoding.EncodeToString(event.Data), "raw",
+		event.SessionID, event.Timestamp, string(event.Kind), event.Data, string(event.Data), "raw",
 	)
 	return err
 }

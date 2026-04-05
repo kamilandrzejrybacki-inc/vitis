@@ -11,6 +11,7 @@ import (
 	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/orchestrator"
+	"github.com/kamilandrzejrybacki-inc/clank/internal/store"
 	filestore "github.com/kamilandrzejrybacki-inc/clank/internal/store/file"
 	pgstore "github.com/kamilandrzejrybacki-inc/clank/internal/store/postgres"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
@@ -56,7 +57,7 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return 2
 	}
 
-	store, err := buildStore(ctx, req)
+	store, err := buildStore(ctx, req.LogBackend, req.LogPath, req.DatabaseURL, req.DebugRaw)
 	if err != nil {
 		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error())); writeErr != nil {
 			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
@@ -99,16 +100,9 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	return 0
 }
 
-func buildStore(ctx context.Context, req model.RunRequest) (interface {
-	Close() error
-	CreateSession(model.Session) error
-	UpdateSession(string, model.SessionPatch) error
-	AppendTurn(model.Turn) error
-	PeekTurns(string, int) ([]model.Turn, error)
-	AppendStreamEvent(model.StoredStreamEvent) error
-}, error) {
-	if req.LogBackend == "db" {
-		return pgstore.New(ctx, req.DatabaseURL)
+func buildStore(ctx context.Context, backend, logPath, dbURL string, debugRaw bool) (store.Store, error) {
+	if backend == "db" {
+		return pgstore.New(ctx, dbURL)
 	}
-	return filestore.New(req.LogPath, req.DebugRaw)
+	return filestore.New(logPath, debugRaw)
 }
