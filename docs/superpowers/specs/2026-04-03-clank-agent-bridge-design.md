@@ -35,6 +35,27 @@ Clank is a Go CLI tool that drives AI agent CLIs (Claude Code, OpenCode, etc.) t
 
 ---
 
+## 1a. Product Boundary
+
+### Supported (MVP)
+
+- Local, single-user, single-machine use only
+- One PTY process per `clank run` invocation
+- Caller-controlled working directory, environment variables, HOME, and `.claude` configuration
+
+### Unsupported
+
+- Hosted or multi-tenant PTY serving
+- Browser-facing PTY sessions
+- Consumer Claude-account brokering
+- Automatic confirmation of permission prompts or auth prompts — Clank never injects responses to interactive prompts; it detects them and surfaces them as a terminal run status instead
+
+### Isolation
+
+HOME, `.claude`, environment variables, and the working directory are all caller-controlled. Clank passes them through to the spawned process without modification. There is no sandboxing layer in MVP.
+
+---
+
 ## 2. Architecture
 
 ```
@@ -86,7 +107,7 @@ type SpawnSpec struct {
 }
 
 type CompletionSignal struct {
-    Status     RunStatus  // completed | timeout | partial
+    Status     RunStatus  // see full status set below
     Confidence float64    // 0.0-1.0
     Reason     string     // human-readable explanation
 }
@@ -112,6 +133,25 @@ type Adapter interface {
     ExtractResponse(transcript []byte) ExtractionResult
 }
 ```
+
+### Run Status Set
+
+`RunStatus` is a string type. The full set of values used by the adapter observer and stored on sessions:
+
+| Status | Class | Description |
+|--------|-------|-------------|
+| `completed` | Terminal | Agent finished successfully and returned a response |
+| `blocked_on_input` | Non-terminal | Agent is waiting for interactive user input |
+| `permission_prompt` | Non-terminal | Agent raised a permission prompt (tool use, file write, etc.) |
+| `auth_required` | Non-terminal | Agent requires authentication (login, token, etc.) |
+| `rate_limited` | Non-terminal | Agent reported rate limiting |
+| `interrupted` | Terminal | Run was cancelled (context cancellation or SIGINT) |
+| `timeout` | Terminal | Run exceeded the configured timeout |
+| `partial` | Terminal | Run ended but extraction confidence is below threshold |
+| `crashed` | Terminal | Agent process exited with a non-zero code and no recognisable output |
+| `error` | Terminal | Internal Clank error (spawn failure, IO error, etc.) |
+
+Non-terminal states (`blocked_on_input`, `permission_prompt`, `auth_required`, `rate_limited`) are detected by the adapter observer and stored in the session for diagnostic purposes. In MVP, Clank does not automatically respond to them — the run is eventually terminated by timeout or by the caller.
 
 ### Design Notes
 
@@ -175,6 +215,34 @@ for {
     }
 }
 ```
+
+---
+
+## 4a. Transcript Fidelity
+
+- **Raw PTY bytes are the canonical source of truth.** `StoredStreamEvent.Chunk` contains the unmodified bytes from the PTY file descriptor, including all ANSI/VT escape sequences, carriage returns, and control characters.
+- **Normalized text is a derived view.** ANSI-stripped plain text is computed on demand for extraction heuristics and human-readable display. It is never used as the storage source and is never written to the store.
+- **Silence is not completion.** Zero output from the PTY (idle period) is not treated as a completion signal. The completion loop always polls the adapter observer on the `ticker` channel; the observer is responsible for issuing `CompletionSignal` based on `CompletionContext.IdleMs`, transcript content, and exit code together.
+
+### Confidence Scores
+
+Both adapter operations emit confidence scores that are stored on the session:
+
+| Field | Source | Description |
+|-------|--------|-------------|
+| `CompletionConfidence` | `CompletionSignal.Confidence` | How confident the adapter is that the run has reached the reported state |
+| `ParserConfidence` | `ExtractionResult.ParserConfidence` | How confident the adapter is that the extracted response text is correct |
+
+Downstream consumers (n8n, Prefect) should use low confidence scores as a signal to flag results for human review rather than silently accepting them.
+
+---
+
+## 4b. Run Status Classification
+
+- **States are classified by the adapter observer, not by exit code alone.** `DetectCompletion` receives the full `CompletionContext` (transcript tail, elapsed time, idle time, and optionally exit code) and returns a `CompletionSignal` with its own assessed `RunStatus`.
+- **Exit code is one input, not the arbiter.** A zero exit code does not guarantee `completed`; the adapter may still return `partial` if extraction confidence is below threshold. A non-zero exit code may yield `interrupted` or `crashed` depending on transcript content.
+- **Non-terminal states remain in diagnostics.** When the adapter detects `blocked_on_input`, `permission_prompt`, `auth_required`, or `rate_limited`, the session is updated in the store with that status. If the run subsequently times out, the final status becomes `timeout` but the intermediate status is preserved in the turn log.
+- **Confidence scores are emitted for both phases.** Completion detection emits `CompletionSignal.Confidence`; response extraction emits `ExtractionResult.ParserConfidence`. Both are stored on the session for downstream consumers.
 
 ---
 
