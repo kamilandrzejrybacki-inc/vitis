@@ -21,9 +21,9 @@ func TestBuildSpawnSpec_Defaults(t *testing.T) {
 	if spec.Command != "codex" {
 		t.Errorf("unexpected Command: %q", spec.Command)
 	}
-	// Default args: ["exec", "--full-auto", "test prompt"]
-	if len(spec.Args) != 3 {
-		t.Fatalf("expected 3 args, got %d: %#v", len(spec.Args), spec.Args)
+	// Default args: ["exec", "--full-auto", "--skip-git-repo-check", "test prompt"]
+	if len(spec.Args) != 4 {
+		t.Fatalf("expected 4 args, got %d: %#v", len(spec.Args), spec.Args)
 	}
 	if spec.Args[0] != "exec" {
 		t.Errorf("expected args[0]='exec', got %q", spec.Args[0])
@@ -31,8 +31,11 @@ func TestBuildSpawnSpec_Defaults(t *testing.T) {
 	if spec.Args[1] != "--full-auto" {
 		t.Errorf("expected args[1]='--full-auto', got %q", spec.Args[1])
 	}
-	if spec.Args[2] != "test prompt" {
-		t.Errorf("expected args[2]='test prompt', got %q", spec.Args[2])
+	if spec.Args[2] != "--skip-git-repo-check" {
+		t.Errorf("expected args[2]='--skip-git-repo-check', got %q", spec.Args[2])
+	}
+	if spec.Args[3] != "test prompt" {
+		t.Errorf("expected args[3]='test prompt', got %q", spec.Args[3])
 	}
 	if !spec.PromptInArgs {
 		t.Error("expected PromptInArgs=true")
@@ -110,7 +113,7 @@ func TestResolveCommand_Defaults(t *testing.T) {
 	if command != "codex" {
 		t.Fatalf("unexpected command: %q", command)
 	}
-	if len(args) != 2 || args[0] != "exec" || args[1] != "--full-auto" {
+	if len(args) != 3 || args[0] != "exec" || args[1] != "--full-auto" || args[2] != "--skip-git-repo-check" {
 		t.Fatalf("unexpected default args: %#v", args)
 	}
 }

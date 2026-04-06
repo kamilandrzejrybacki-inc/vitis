@@ -38,7 +38,7 @@ func (a *Adapter) FormatPrompt(raw string) []byte {
 // ResolveCommand resolves the codex binary and arguments from the environment.
 func ResolveCommand(env map[string]string) (string, []string) {
 	const defaultBinary = "codex"
-	defaultArgs := []string{"exec", "--full-auto"}
+	defaultArgs := []string{"exec", "--full-auto", "--skip-git-repo-check"}
 
 	binaryOverride := firstNonEmpty(env["CLANK_CODEX_BINARY"], os.Getenv("CLANK_CODEX_BINARY"))
 	command := defaultBinary

@@ -113,23 +113,19 @@ func TestObserve_StillRunning(t *testing.T) {
 	}
 }
 
-func TestObserve_IdleFallback(t *testing.T) {
+func TestObserve_NoIdleFallback(t *testing.T) {
 	content := loadFixture(t, "happy_path.txt")
 	a := New()
-	// No exit code, but idle >= 5000ms — should return low-confidence RunCompleted.
+	// No exit code, even with very long idle — Codex adapter should NOT use idle
+	// fallback because Codex exec mode always exits on completion. Long silent
+	// periods are normal during reasoning.
 	obs := a.Observe(adapter.CompletionContext{
 		NormalizedTail: content,
-		IdleMs:         6000,
+		IdleMs:         60000,
 		BytesSeen:      int64(len(content)),
 	})
-	if obs == nil {
-		t.Fatal("expected observation from idle fallback, got nil")
-	}
-	if obs.Status != model.RunCompleted {
-		t.Fatalf("expected RunCompleted from idle fallback, got %v", obs.Status)
-	}
-	if obs.Confidence > 0.5 {
-		t.Errorf("expected low confidence for idle fallback, got %f", obs.Confidence)
+	if obs != nil {
+		t.Fatalf("expected nil (still running), got status=%v", obs.Status)
 	}
 }
 

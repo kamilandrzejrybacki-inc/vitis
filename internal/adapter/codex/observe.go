@@ -62,17 +62,9 @@ func (a *Adapter) Observe(ctx adapter.CompletionContext) *adapter.TranscriptObse
 		}
 	}
 
-	// Low-confidence idle fallback: process still running but output has stopped.
-	if ctx.BytesSeen > 0 && ctx.IdleMs >= 5000 {
-		return &adapter.TranscriptObservation{
-			Status:     model.RunCompleted,
-			Terminal:   true,
-			Confidence: 0.35,
-			Reason:     "idle fallback",
-			Evidence:   []string{"idle_fallback"},
-		}
-	}
-
+	// No idle fallback for Codex. In exec mode, Codex always exits on completion.
+	// Long silent periods are expected during reasoning (xhigh effort can take 30s+).
+	// Rely on process exit as the definitive completion signal.
 	return nil
 }
 
