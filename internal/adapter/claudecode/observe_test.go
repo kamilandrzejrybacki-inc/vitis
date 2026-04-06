@@ -55,6 +55,113 @@ func TestObserveExitCompletion(t *testing.T) {
 	}
 }
 
+func TestObserve_IdleThresholdBoundary(t *testing.T) {
+	a := New()
+
+	// Below threshold (1499ms): pattern should NOT trigger, Observe returns nil
+	obs := a.Observe(adapter.CompletionContext{
+		NormalizedTail: "Continue? (y/n)",
+		IdleMs:         1499,
+		BytesSeen:      20,
+	})
+	if obs != nil {
+		t.Fatalf("expected nil observation below idle threshold, got status=%v", obs.Status)
+	}
+
+	// At threshold (1500ms): pattern should trigger RunBlockedOnInput
+	obs = a.Observe(adapter.CompletionContext{
+		NormalizedTail: "Continue? (y/n)",
+		IdleMs:         1500,
+		BytesSeen:      20,
+	})
+	if obs == nil || obs.Status != model.RunBlockedOnInput {
+		t.Fatalf("expected RunBlockedOnInput at threshold 1500ms, got %#v", obs)
+	}
+}
+
+func TestObserve_PermissionPrompt(t *testing.T) {
+	a := New()
+	// Must match permissionPatterns (contains "permission") but NOT blockedPromptPatterns,
+	// authPatterns, or rateLimitPatterns. The tail must also contain "?" for the check to fire.
+	obs := a.Observe(adapter.CompletionContext{
+		NormalizedTail: "Waiting for permission approval?",
+		IdleMs:         2000,
+		BytesSeen:      40,
+	})
+	if obs == nil || obs.Status != model.RunPermissionPrompt {
+		t.Fatalf("expected RunPermissionPrompt, got %#v", obs)
+	}
+}
+
+func TestObserve_CrashWithNonZeroExit(t *testing.T) {
+	a := New()
+	exitCode := 1
+	obs := a.Observe(adapter.CompletionContext{
+		NormalizedTail: "fatal error occurred",
+		ExitCode:       &exitCode,
+		BytesSeen:      20,
+	})
+	if obs == nil || obs.Status != model.RunCrashed {
+		t.Fatalf("expected RunCrashed for non-zero exit, got %#v", obs)
+	}
+	if !obs.Terminal {
+		t.Error("expected Terminal=true for crashed observation")
+	}
+}
+
+func TestObserve_RunningWhenNoExitAndBelowThreshold(t *testing.T) {
+	a := New()
+	// No exit code, idle below threshold, bytes seen > 0 — returns nil (still running)
+	obs := a.Observe(adapter.CompletionContext{
+		NormalizedTail: "Processing...",
+		IdleMs:         100,
+		BytesSeen:      15,
+	})
+	if obs != nil {
+		t.Fatalf("expected nil (running), got %#v", obs)
+	}
+}
+
+func TestObserve_ExitNoOutput(t *testing.T) {
+	a := New()
+	exitCode := 0
+	obs := a.Observe(adapter.CompletionContext{
+		NormalizedTail: "",
+		ExitCode:       &exitCode,
+		BytesSeen:      0,
+	})
+	if obs == nil || obs.Status != model.RunPartial {
+		t.Fatalf("expected RunPartial for exit with no output, got %#v", obs)
+	}
+}
+
+func TestObserve_PromptReappearance(t *testing.T) {
+	a := New()
+	obs := a.Observe(adapter.CompletionContext{
+		NormalizedTail: "some output\n>\n",
+		IdleMs:         2000,
+		BytesSeen:      20,
+	})
+	if obs == nil || obs.Status != model.RunCompleted {
+		t.Fatalf("expected RunCompleted on prompt reappearance, got %#v", obs)
+	}
+}
+
+func TestObserve_IdleFallback(t *testing.T) {
+	a := New()
+	obs := a.Observe(adapter.CompletionContext{
+		NormalizedTail: "some output without prompt",
+		IdleMs:         5001,
+		BytesSeen:      30,
+	})
+	if obs == nil || obs.Status != model.RunCompleted {
+		t.Fatalf("expected RunCompleted from idle fallback, got %#v", obs)
+	}
+	if obs.Confidence > 0.5 {
+		t.Errorf("expected low confidence for idle fallback, got %f", obs.Confidence)
+	}
+}
+
 func TestObserveFromFixtures(t *testing.T) {
 	exitZero := 0
 
