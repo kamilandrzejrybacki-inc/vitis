@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -204,5 +205,129 @@ func TestRunHappyPath(t *testing.T) {
 	}
 	if result.Response != "answer" {
 		t.Fatalf("unexpected response: %q", result.Response)
+	}
+}
+
+// --- resolvePrompt unit tests ---
+
+func TestResolvePrompt_InlinePrompt(t *testing.T) {
+	got, err := resolvePrompt(model.RunRequest{Prompt: "hello"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "hello" {
+		t.Fatalf("expected %q, got %q", "hello", got)
+	}
+}
+
+func TestResolvePrompt_FromFile(t *testing.T) {
+	f, err := os.CreateTemp("", "clank-prompt-*.txt")
+	if err != nil {
+		t.Fatalf("create temp file: %v", err)
+	}
+	defer os.Remove(f.Name())
+
+	content := "prompt from file"
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+	f.Close()
+
+	got, err := resolvePrompt(model.RunRequest{PromptFile: f.Name()})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != content {
+		t.Fatalf("expected %q, got %q", content, got)
+	}
+}
+
+func TestResolvePrompt_BothSet(t *testing.T) {
+	got, err := resolvePrompt(model.RunRequest{Prompt: "a", PromptFile: "b"})
+	if err == nil {
+		t.Fatal("expected error when both Prompt and PromptFile are set, got nil")
+	}
+	if got != "" {
+		t.Fatalf("expected empty string, got %q", got)
+	}
+	if !strings.Contains(err.Error(), "exactly one") {
+		t.Fatalf("expected error to contain 'exactly one', got: %v", err)
+	}
+}
+
+func TestResolvePrompt_NeitherSet(t *testing.T) {
+	got, err := resolvePrompt(model.RunRequest{})
+	if err == nil {
+		t.Fatal("expected error when neither Prompt nor PromptFile are set, got nil")
+	}
+	if got != "" {
+		t.Fatalf("expected empty string, got %q", got)
+	}
+	if !strings.Contains(err.Error(), "missing") {
+		t.Fatalf("expected error to contain 'missing', got: %v", err)
+	}
+}
+
+func TestResolvePrompt_PathTraversal(t *testing.T) {
+	got, err := resolvePrompt(model.RunRequest{PromptFile: "../../../etc/passwd"})
+	if err == nil {
+		t.Fatal("expected error for path traversal, got nil")
+	}
+	if got != "" {
+		t.Fatalf("expected empty string, got %q", got)
+	}
+	if !strings.Contains(err.Error(), "..") {
+		t.Fatalf("expected error to mention '..', got: %v", err)
+	}
+}
+
+func TestResolvePrompt_FileNotFound(t *testing.T) {
+	got, err := resolvePrompt(model.RunRequest{PromptFile: "/tmp/nonexistent_clank_test_file_12345"})
+	if err == nil {
+		t.Fatal("expected error for missing file, got nil")
+	}
+	if got != "" {
+		t.Fatalf("expected empty string, got %q", got)
+	}
+}
+
+// TestRun_PromptFile_E2E verifies that Run() correctly reads the prompt from a file
+// using real file I/O, with the fake runtime/store for process isolation.
+func TestRun_PromptFile_E2E(t *testing.T) {
+	f, err := os.CreateTemp("", "clank-e2e-prompt-*.txt")
+	if err != nil {
+		t.Fatalf("create temp file: %v", err)
+	}
+	defer os.Remove(f.Name())
+
+	filePrompt := "e2e prompt from file"
+	if _, err := f.WriteString(filePrompt); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+	f.Close()
+
+	store := newFakeStore()
+	process := newFakeProcess()
+	deps := Dependencies{
+		Adapters: adapter.NewRegistry(claudecode.New()),
+		Runtime:  &fakeRuntime{process: process},
+		Store:    store,
+	}
+	result, err := Run(context.Background(), model.RunRequest{
+		Provider:   "claude-code",
+		PromptFile: f.Name(),
+	}, deps)
+	if err != nil {
+		t.Fatalf("Run with PromptFile: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected result, got nil")
+	}
+	// The user turn stored in the fake store should contain the prompt read from file.
+	if len(store.turns) == 0 {
+		t.Fatal("expected at least one turn stored, got none")
+	}
+	if store.turns[0].Content != filePrompt {
+		t.Fatalf("expected user turn content %q, got %q", filePrompt, store.turns[0].Content)
 	}
 }
