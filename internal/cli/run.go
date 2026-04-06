@@ -9,6 +9,7 @@ import (
 
 	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/codex"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/orchestrator"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/store"
@@ -73,7 +74,7 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	}
 
 	deps := orchestrator.Dependencies{
-		Adapters: adapter.NewRegistry(claudecode.New()),
+		Adapters: adapter.NewRegistry(claudecode.New(), codex.New()),
 		Runtime:  terminal.NewRuntime(),
 		Store:    store,
 	}

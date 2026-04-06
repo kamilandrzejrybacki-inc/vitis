@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/codex"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/util"
 )
@@ -61,6 +62,8 @@ func providerCommand(provider string) (string, []string) {
 	switch provider {
 	case "", "claude-code":
 		return claudecode.ResolveCommand(nil)
+	case "codex":
+		return codex.ResolveCommand(nil)
 	default:
 		return provider, nil
 	}
