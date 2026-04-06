@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/util"
 )
 
@@ -32,6 +34,7 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 		request.TerminalRows = 24
 	}
 
+	// 1. Resolve prompt.
 	prompt, err := resolvePrompt(request)
 	if err != nil {
 		return nil, err
@@ -54,33 +57,26 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 		}
 	}
 
-	sessionID, err := util.NewSessionID()
+	// 2. Build session.
+	session, spec, err := buildSession(provider, request, env, homeDir)
 	if err != nil {
 		return nil, &model.RunError{Code: model.ErrorInternal, Message: err.Error()}
 	}
-	startedAt := time.Now().UTC()
-	session := model.Session{
-		ID:           sessionID,
-		Provider:     request.Provider,
-		Status:       model.RunRunning,
-		StartedAt:    startedAt,
-		AuthMode:     "unknown",
-		TerminalCols: intPtr(request.TerminalCols),
-		TerminalRows: intPtr(request.TerminalRows),
-	}
-	spec := provider.BuildSpawnSpec(request.Cwd, env, homeDir, request.TerminalCols, request.TerminalRows)
+
+	// 3. Spawn PTY process (cleanup on failure deferred to after store create).
 	process, err := deps.Runtime.Spawn(spec)
 	if err != nil {
 		return nil, &model.RunError{Code: model.ErrorSpawn, Message: err.Error()}
 	}
 
+	// 4. Create session in store (terminate process on failure).
 	if err := deps.Store.CreateSession(ctx, session); err != nil {
 		_ = process.Terminate(500)
 		return nil, &model.RunError{Code: model.ErrorStore, Message: fmt.Errorf("create session: %w", err).Error()}
 	}
 
 	userTurn := model.Turn{
-		SessionID: sessionID,
+		SessionID: session.ID,
 		Index:     0,
 		Role:      "user",
 		Content:   prompt,
@@ -94,13 +90,13 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 	if writeErr != nil {
 		status := model.RunFailed
 		endedAt := time.Now().UTC()
-		duration := endedAt.Sub(startedAt).Milliseconds()
-		_ = deps.Store.UpdateSession(ctx, sessionID, model.SessionPatch{
+		duration := endedAt.Sub(session.StartedAt).Milliseconds()
+		_ = deps.Store.UpdateSession(ctx, session.ID, model.SessionPatch{
 			Status:     &status,
 			EndedAt:    &endedAt,
 			DurationMs: &duration,
 		})
-		return resultWithError(ctx, sessionID, request.Provider, model.RunFailed, request.PeekLast, deps, &model.RunError{
+		return resultWithError(ctx, session.ID, request.Provider, model.RunFailed, request.PeekLast, deps, &model.RunError{
 			Code:    model.ErrorPromptIO,
 			Message: writeErr.Error(),
 		})
@@ -109,7 +105,8 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 	runCtx, cancel := context.WithTimeout(ctx, time.Duration(request.TimeoutSec)*time.Second)
 	defer cancel()
 
-	loopResult, err := waitForCompletionLoop(runCtx, sessionID, process, provider, deps.Store, request.DebugRaw)
+	// 5. Run completion loop.
+	loopResult, err := waitForCompletionLoop(runCtx, session.ID, process, provider, deps.Store, request.DebugRaw)
 	if err != nil {
 		return nil, &model.RunError{Code: model.ErrorRuntime, Message: err.Error()}
 	}
@@ -120,7 +117,7 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 
 	if extraction.Response != "" {
 		assistantTurn := model.Turn{
-			SessionID: sessionID,
+			SessionID: session.ID,
 			Index:     1,
 			Role:      "assistant",
 			Content:   extraction.Response,
@@ -131,18 +128,70 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 		}
 	}
 
-	status := loopResult.Observation.Status
+	// 6. Assemble result.
+	result, patch := assembleResult(session, loopResult.Observation, extraction, loopResult.Transcript, loopResult.ExitCode)
+
+	// 7. Update session in store.
+	if err := deps.Store.UpdateSession(ctx, session.ID, patch); err != nil {
+		return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
+	}
+
+	peek, err := deps.Store.PeekTurns(ctx, session.ID, request.PeekLast)
+	if err != nil {
+		return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
+	}
+	result.Peek = peek
+
+	// 8. Return result.
+	return result, nil
+}
+
+// buildSession constructs a model.Session and the adapter.SpawnSpec for a new run.
+func buildSession(
+	provider adapter.Adapter,
+	request model.RunRequest,
+	env map[string]string,
+	homeDir string,
+) (model.Session, adapter.SpawnSpec, error) {
+	sessionID, err := util.NewSessionID()
+	if err != nil {
+		return model.Session{}, adapter.SpawnSpec{}, err
+	}
+	startedAt := time.Now().UTC()
+	session := model.Session{
+		ID:           sessionID,
+		Provider:     request.Provider,
+		Status:       model.RunRunning,
+		StartedAt:    startedAt,
+		AuthMode:     "unknown",
+		TerminalCols: intPtr(request.TerminalCols),
+		TerminalRows: intPtr(request.TerminalRows),
+	}
+	spec := provider.BuildSpawnSpec(request.Cwd, env, homeDir, request.TerminalCols, request.TerminalRows)
+	return session, spec, nil
+}
+
+// assembleResult builds the RunResult and the SessionPatch from the completed loop data.
+func assembleResult(
+	session model.Session,
+	obs *adapter.TranscriptObservation,
+	extraction adapter.ExtractionResult,
+	transcript *terminal.Transcript,
+	exitCode *int,
+) (*model.RunResult, model.SessionPatch) {
+	status := obs.Status
 	endedAt := time.Now().UTC()
-	duration := endedAt.Sub(startedAt).Milliseconds()
+	duration := endedAt.Sub(session.StartedAt).Milliseconds()
 	parserConfidence := extraction.ParserConfidence
-	observationConfidence := loopResult.Observation.Confidence
-	bytesCaptured := loopResult.Transcript.BytesSeen()
-	blockedReason := loopResult.Observation.Reason
+	observationConfidence := obs.Confidence
+	bytesCaptured := transcript.BytesSeen()
+	blockedReason := obs.Reason
+
 	patch := model.SessionPatch{
 		Status:                &status,
 		EndedAt:               &endedAt,
 		DurationMs:            &duration,
-		ExitCode:              loopResult.ExitCode,
+		ExitCode:              exitCode,
 		ParserConfidence:      &parserConfidence,
 		ObservationConfidence: &observationConfidence,
 		BytesCaptured:         &bytesCaptured,
@@ -151,31 +200,23 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 	if status == model.RunBlockedOnInput || status == model.RunPermissionPrompt || status == model.RunAuthRequired || status == model.RunRateLimited {
 		patch.BlockedReason = &blockedReason
 	}
-	if err := deps.Store.UpdateSession(ctx, sessionID, patch); err != nil {
-		return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
-	}
 
-	peek, err := deps.Store.PeekTurns(ctx, sessionID, request.PeekLast)
-	if err != nil {
-		return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
-	}
-
-	return &model.RunResult{
-		SessionID: sessionID,
-		Provider:  request.Provider,
+	result := &model.RunResult{
+		SessionID: session.ID,
+		Provider:  session.Provider,
 		Status:    status,
 		Response:  extraction.Response,
-		Peek:      peek,
 		Meta: model.ResultMeta{
 			DurationMs:            duration,
-			ExitCode:              loopResult.ExitCode,
+			ExitCode:              exitCode,
 			ParserConfidence:      extraction.ParserConfidence,
-			ObservationConfidence: loopResult.Observation.Confidence,
+			ObservationConfidence: obs.Confidence,
 			BytesCaptured:         bytesCaptured,
-			Warnings:              append(loopResult.Observation.Evidence, extraction.Notes...),
+			Warnings:              append(obs.Evidence, extraction.Notes...),
 			BlockedReason:         patch.BlockedReason,
 		},
-	}, nil
+	}
+	return result, patch
 }
 
 func resolvePrompt(request model.RunRequest) (string, error) {
