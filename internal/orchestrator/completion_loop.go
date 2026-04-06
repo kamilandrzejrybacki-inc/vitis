@@ -51,7 +51,7 @@ func waitForCompletionLoop(
 			}
 			transcript.Append(event)
 			if debugRaw {
-				_ = store.AppendStreamEvent(model.StoredStreamEvent{
+				_ = store.AppendStreamEvent(ctx, model.StoredStreamEvent{
 					SessionID: sessionID,
 					Timestamp: event.Timestamp,
 					Kind:      event.Kind,

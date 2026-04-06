@@ -313,7 +313,7 @@ func TestIntegration_FileStoreRoundTrip(t *testing.T) {
 	}
 
 	// Verify turns can be read back via PeekTurns.
-	turns, err := store.PeekTurns(result.SessionID, 10)
+	turns, err := store.PeekTurns(context.Background(), result.SessionID, 10)
 	if err != nil {
 		t.Fatalf("peek turns: %v", err)
 	}

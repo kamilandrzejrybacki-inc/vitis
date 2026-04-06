@@ -74,7 +74,7 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 		return nil, &model.RunError{Code: model.ErrorSpawn, Message: err.Error()}
 	}
 
-	if err := deps.Store.CreateSession(session); err != nil {
+	if err := deps.Store.CreateSession(ctx, session); err != nil {
 		_ = process.Terminate(500)
 		return nil, &model.RunError{Code: model.ErrorStore, Message: fmt.Errorf("create session: %w", err).Error()}
 	}
@@ -86,7 +86,7 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 		Content:   prompt,
 		CreatedAt: time.Now().UTC(),
 	}
-	if err := deps.Store.AppendTurn(userTurn); err != nil {
+	if err := deps.Store.AppendTurn(ctx, userTurn); err != nil {
 		return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
 	}
 
@@ -95,12 +95,12 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 		status := model.RunFailed
 		endedAt := time.Now().UTC()
 		duration := endedAt.Sub(startedAt).Milliseconds()
-		_ = deps.Store.UpdateSession(sessionID, model.SessionPatch{
+		_ = deps.Store.UpdateSession(ctx, sessionID, model.SessionPatch{
 			Status:     &status,
 			EndedAt:    &endedAt,
 			DurationMs: &duration,
 		})
-		return resultWithError(sessionID, request.Provider, model.RunFailed, request.PeekLast, deps, &model.RunError{
+		return resultWithError(ctx, sessionID, request.Provider, model.RunFailed, request.PeekLast, deps, &model.RunError{
 			Code:    model.ErrorPromptIO,
 			Message: writeErr.Error(),
 		})
@@ -126,7 +126,7 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 			Content:   extraction.Response,
 			CreatedAt: time.Now().UTC(),
 		}
-		if err := deps.Store.AppendTurn(assistantTurn); err != nil {
+		if err := deps.Store.AppendTurn(ctx, assistantTurn); err != nil {
 			return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
 		}
 	}
@@ -151,11 +151,11 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 	if status == model.RunBlockedOnInput || status == model.RunPermissionPrompt || status == model.RunAuthRequired || status == model.RunRateLimited {
 		patch.BlockedReason = &blockedReason
 	}
-	if err := deps.Store.UpdateSession(sessionID, patch); err != nil {
+	if err := deps.Store.UpdateSession(ctx, sessionID, patch); err != nil {
 		return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
 	}
 
-	peek, err := deps.Store.PeekTurns(sessionID, request.PeekLast)
+	peek, err := deps.Store.PeekTurns(ctx, sessionID, request.PeekLast)
 	if err != nil {
 		return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
 	}
@@ -198,8 +198,8 @@ func resolvePrompt(request model.RunRequest) (string, error) {
 	}
 }
 
-func resultWithError(sessionID, provider string, status model.RunStatus, peekLast int, deps Dependencies, runErr *model.RunError) (*model.RunResult, error) {
-	peek, err := deps.Store.PeekTurns(sessionID, peekLast)
+func resultWithError(ctx context.Context, sessionID, provider string, status model.RunStatus, peekLast int, deps Dependencies, runErr *model.RunError) (*model.RunResult, error) {
+	peek, err := deps.Store.PeekTurns(ctx, sessionID, peekLast)
 	if err != nil {
 		return nil, err
 	}

@@ -39,7 +39,8 @@ func TestPeekCommand_FileBackend(t *testing.T) {
 		StartedAt: time.Now().UTC(),
 		AuthMode:  "unknown",
 	}
-	if err := store.CreateSession(session); err != nil {
+	ctx := context.Background()
+	if err := store.CreateSession(ctx, session); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -50,7 +51,7 @@ func TestPeekCommand_FileBackend(t *testing.T) {
 		Content:   "hello from test",
 		CreatedAt: time.Now().UTC(),
 	}
-	if err := store.AppendTurn(turn); err != nil {
+	if err := store.AppendTurn(ctx, turn); err != nil {
 		t.Fatalf("append turn: %v", err)
 	}
 	store.Close()

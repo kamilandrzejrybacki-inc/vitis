@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -21,11 +22,12 @@ func TestFileStoreRoundTrip(t *testing.T) {
 		StartedAt: time.Now().UTC(),
 		AuthMode:  "unknown",
 	}
-	if err := store.CreateSession(session); err != nil {
+	ctx := context.Background()
+	if err := store.CreateSession(ctx, session); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
-	if err := store.AppendTurn(model.Turn{
+	if err := store.AppendTurn(ctx, model.Turn{
 		SessionID: "sess_test",
 		Index:     0,
 		Role:      "user",
@@ -35,7 +37,7 @@ func TestFileStoreRoundTrip(t *testing.T) {
 		t.Fatalf("append turn: %v", err)
 	}
 
-	turns, err := store.PeekTurns("sess_test", 10)
+	turns, err := store.PeekTurns(ctx, "sess_test", 10)
 	if err != nil {
 		t.Fatalf("peek turns: %v", err)
 	}

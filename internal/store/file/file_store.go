@@ -2,6 +2,7 @@ package file
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -33,13 +34,13 @@ func New(root string, debugRaw bool) (*Store, error) {
 	return s, nil
 }
 
-func (s *Store) CreateSession(session model.Session) error {
+func (s *Store) CreateSession(_ context.Context, session model.Session) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.writeJSONAtomic(s.sessionPath(session.ID), session)
 }
 
-func (s *Store) UpdateSession(sessionID string, patch model.SessionPatch) error {
+func (s *Store) UpdateSession(_ context.Context, sessionID string, patch model.SessionPatch) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var session model.Session
@@ -87,13 +88,13 @@ func (s *Store) UpdateSession(sessionID string, patch model.SessionPatch) error 
 	return s.writeJSONAtomic(s.sessionPath(sessionID), session)
 }
 
-func (s *Store) AppendTurn(turn model.Turn) error {
+func (s *Store) AppendTurn(_ context.Context, turn model.Turn) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.appendJSONL(s.turnPath(turn.SessionID), turn)
 }
 
-func (s *Store) PeekTurns(sessionID string, lastN int) ([]model.Turn, error) {
+func (s *Store) PeekTurns(_ context.Context, sessionID string, lastN int) ([]model.Turn, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	file, err := os.Open(s.turnPath(sessionID))
@@ -125,7 +126,7 @@ func (s *Store) PeekTurns(sessionID string, lastN int) ([]model.Turn, error) {
 	return turns, nil
 }
 
-func (s *Store) AppendStreamEvent(event model.StoredStreamEvent) error {
+func (s *Store) AppendStreamEvent(_ context.Context, event model.StoredStreamEvent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.debugRaw {

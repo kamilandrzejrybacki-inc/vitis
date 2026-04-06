@@ -39,7 +39,7 @@ func PeekCommand(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	}
 	defer store.Close()
 
-	turns, err := store.PeekTurns(sessionID, last)
+	turns, err := store.PeekTurns(ctx, sessionID, last)
 	if err != nil {
 		_ = WriteJSON(stdout, ErrorResult(model.ErrorNotFound, err.Error()))
 		return 1

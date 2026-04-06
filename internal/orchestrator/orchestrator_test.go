@@ -22,19 +22,25 @@ func newFakeStore() *fakeStore {
 	return &fakeStore{sessions: map[string]model.Session{}}
 }
 
-func (s *fakeStore) CreateSession(session model.Session) error {
+func (s *fakeStore) CreateSession(_ context.Context, session model.Session) error {
 	s.sessions[session.ID] = session
 	return nil
 }
 
-func (s *fakeStore) UpdateSession(sessionID string, patch model.SessionPatch) error { return nil }
-func (s *fakeStore) AppendTurn(turn model.Turn) error {
+func (s *fakeStore) UpdateSession(_ context.Context, sessionID string, patch model.SessionPatch) error {
+	return nil
+}
+func (s *fakeStore) AppendTurn(_ context.Context, turn model.Turn) error {
 	s.turns = append(s.turns, turn)
 	return nil
 }
-func (s *fakeStore) PeekTurns(sessionID string, lastN int) ([]model.Turn, error) { return s.turns, nil }
-func (s *fakeStore) AppendStreamEvent(event model.StoredStreamEvent) error       { return nil }
-func (s *fakeStore) Close() error                                                { return nil }
+func (s *fakeStore) PeekTurns(_ context.Context, sessionID string, lastN int) ([]model.Turn, error) {
+	return s.turns, nil
+}
+func (s *fakeStore) AppendStreamEvent(_ context.Context, event model.StoredStreamEvent) error {
+	return nil
+}
+func (s *fakeStore) Close() error { return nil }
 
 type fakeRuntime struct {
 	process terminal.PseudoTerminalProcess
