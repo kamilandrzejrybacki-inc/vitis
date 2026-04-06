@@ -118,6 +118,105 @@ func TestProcessTerminatePolitely(t *testing.T) {
 	}
 }
 
+func TestProcess_WriteAndReadBack(t *testing.T) {
+	rt := NewRuntime()
+	spec := adapter.SpawnSpec{
+		Command: "cat",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	p, err := rt.Spawn(spec)
+	if err != nil {
+		t.Fatalf("Spawn failed: %v", err)
+	}
+
+	if _, err := p.Write([]byte("hello from stdin\n")); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+
+	// Give cat time to echo back, then terminate
+	time.Sleep(200 * time.Millisecond)
+	_ = p.Terminate(500)
+
+	output := collectOutput(ctx, p)
+	combined := string(output)
+	if !strings.Contains(combined, "hello from stdin") {
+		t.Errorf("expected 'hello from stdin' in output, got: %q", combined)
+	}
+}
+
+func TestProcess_ExitCode_NonZero(t *testing.T) {
+	rt := NewRuntime()
+	spec := adapter.SpawnSpec{
+		Command: "sh",
+		Args:    []string{"-c", "exit 42"},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	p, err := rt.Spawn(spec)
+	if err != nil {
+		t.Fatalf("Spawn failed: %v", err)
+	}
+
+	// Drain output so the process can exit
+	go func() {
+		for range p.Output() {
+		}
+	}()
+
+	select {
+	case result := <-p.Done():
+		if result.Code != 42 {
+			t.Errorf("ExitResult.Code = %d, want 42", result.Code)
+		}
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for process to exit")
+	}
+}
+
+func TestProcess_Terminate_ForceKill(t *testing.T) {
+	rt := NewRuntime()
+	spec := adapter.SpawnSpec{
+		Command: "sh",
+		Args:    []string{"-c", "trap '' INT; sleep 60"},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	p, err := rt.Spawn(spec)
+	if err != nil {
+		t.Fatalf("Spawn failed: %v", err)
+	}
+
+	// Drain output in background
+	go func() {
+		for range p.Output() {
+		}
+	}()
+
+	// Give the process time to set up signal traps
+	time.Sleep(200 * time.Millisecond)
+
+	if err := p.Terminate(200); err != nil {
+		t.Fatalf("Terminate returned error: %v", err)
+	}
+
+	deadline := time.After(3 * time.Second)
+	select {
+	case <-p.Done():
+		// process was killed as expected
+	case <-deadline:
+		t.Fatal("process did not exit within 3 seconds after force kill")
+	case <-ctx.Done():
+		t.Fatal("test context expired")
+	}
+}
+
 func TestProcessLargeOutput(t *testing.T) {
 	rt := NewRuntime()
 	// Use sh -c to run a pipeline that produces 10000 lines
