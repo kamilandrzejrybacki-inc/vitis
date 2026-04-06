@@ -49,6 +49,12 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 	if err != nil {
 		return nil, &model.RunError{Code: model.ErrorConfig, Message: err.Error()}
 	}
+	if request.Model != "" {
+		env["CLANK_MODEL"] = request.Model
+	}
+	if request.ReasoningEffort != "" {
+		env["CLANK_REASONING_EFFORT"] = request.ReasoningEffort
+	}
 
 	homeDir := request.HomeDir
 	if homeDir == "" {

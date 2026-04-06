@@ -37,6 +37,8 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fs.IntVar(&req.TerminalCols, "terminal-cols", 80, "terminal columns")
 	fs.IntVar(&req.TerminalRows, "terminal-rows", 24, "terminal rows")
 	fs.StringVar(&req.HomeDir, "home-dir", "", "home directory override")
+	fs.StringVar(&req.Model, "model", "", "model name (passed to provider)")
+	fs.StringVar(&req.ReasoningEffort, "reasoning-effort", "", "reasoning effort level (provider-specific)")
 
 	if err := fs.Parse(args); err != nil {
 		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error())); writeErr != nil {

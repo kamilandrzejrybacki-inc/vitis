@@ -20,6 +20,9 @@ func (a *Adapter) ID() string {
 
 func (a *Adapter) BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int, _ string) adapter.SpawnSpec {
 	command, args := ResolveCommand(env)
+	if m := env["CLANK_MODEL"]; m != "" {
+		args = append(args, "--model", m)
+	}
 	return adapter.SpawnSpec{
 		Command:      command,
 		Args:         args,

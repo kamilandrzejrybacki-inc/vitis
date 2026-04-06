@@ -16,7 +16,14 @@ func (a *Adapter) ID() string { return "codex" }
 
 func (a *Adapter) BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int, prompt string) adapter.SpawnSpec {
 	command, args := ResolveCommand(env)
-	// Append the prompt as the last positional argument
+	// Insert --model and --reasoning-effort before the prompt positional arg.
+	if m := env["CLANK_MODEL"]; m != "" {
+		args = append(args, "--model", m)
+	}
+	if re := env["CLANK_REASONING_EFFORT"]; re != "" {
+		args = append(args, "--reasoning-effort", re)
+	}
+	// Append the prompt as the last positional argument.
 	args = append(args, prompt)
 	return adapter.SpawnSpec{
 		Command:      command,
