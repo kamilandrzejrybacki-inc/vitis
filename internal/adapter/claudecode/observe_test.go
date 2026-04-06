@@ -81,15 +81,28 @@ func TestObserve_IdleThresholdBoundary(t *testing.T) {
 
 func TestObserve_PermissionPrompt(t *testing.T) {
 	a := New()
-	// Must match permissionPatterns (contains "permission") but NOT blockedPromptPatterns,
-	// authPatterns, or rateLimitPatterns. The tail must also contain "?" for the check to fire.
+	// Must match permissionPatterns but NOT blockedPromptPatterns, authPatterns, or rateLimitPatterns.
 	obs := a.Observe(adapter.CompletionContext{
-		NormalizedTail: "Waiting for permission approval?",
+		NormalizedTail: "Waiting for permission approval",
 		IdleMs:         2000,
 		BytesSeen:      40,
 	})
 	if obs == nil || obs.Status != model.RunPermissionPrompt {
 		t.Fatalf("expected RunPermissionPrompt, got %#v", obs)
+	}
+}
+
+func TestObserve_PermissionPrompt_TUI(t *testing.T) {
+	a := New()
+	// Claude Code TUI shows "Enter to confirm · Esc to cancel" which after ANSI
+	// stripping becomes "Entertoconfirm·Esctocancel" (no spaces).
+	obs := a.Observe(adapter.CompletionContext{
+		NormalizedTail: "Entertoconfirm·Esctocancel",
+		IdleMs:         2000,
+		BytesSeen:      40,
+	})
+	if obs == nil || obs.Status != model.RunPermissionPrompt {
+		t.Fatalf("expected RunPermissionPrompt for TUI overlay, got %#v", obs)
 	}
 }
 
@@ -147,18 +160,17 @@ func TestObserve_PromptReappearance(t *testing.T) {
 	}
 }
 
-func TestObserve_IdleFallback(t *testing.T) {
+func TestObserve_NoIdleFallback(t *testing.T) {
 	a := New()
+	// Claude Code should NOT use idle fallback — long pauses are normal
+	// during thinking or permission prompts.
 	obs := a.Observe(adapter.CompletionContext{
 		NormalizedTail: "some output without prompt",
-		IdleMs:         5001,
+		IdleMs:         60000,
 		BytesSeen:      30,
 	})
-	if obs == nil || obs.Status != model.RunCompleted {
-		t.Fatalf("expected RunCompleted from idle fallback, got %#v", obs)
-	}
-	if obs.Confidence > 0.5 {
-		t.Errorf("expected low confidence for idle fallback, got %f", obs.Confidence)
+	if obs != nil {
+		t.Fatalf("expected nil (still running), got status=%v", obs.Status)
 	}
 }
 

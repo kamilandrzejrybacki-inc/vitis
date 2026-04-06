@@ -21,6 +21,9 @@ var (
 	}
 	permissionPatterns = []*regexp.Regexp{
 		regexp.MustCompile(`(?i)\b(permission|approval|approve|deny|allow this)\b`),
+		// Claude Code TUI confirmation overlay (ANSI-stripped: words may lose spaces)
+		regexp.MustCompile(`(?i)enter.*confirm.*esc.*cancel`),
+		regexp.MustCompile(`(?i)entertoconfirm`),
 	}
 	promptReappearancePatterns = []*regexp.Regexp{
 		regexp.MustCompile(`(?m)^>\s*$`),
