@@ -1,0 +1,19 @@
+OpenAI Codex v0.1.2025060501 (research preview)
+--------
+workdir: /home/user/project
+model: o4-mini
+provider: openai
+approval: on-request
+sandbox: workspace-write [workdir, /tmp]
+reasoning effort: none
+reasoning summaries: none
+session id: 01234567-abcd-efgh-ijkl-567890abcdef
+--------
+user
+What is 2+2?
+
+codex
+The answer is 4.
+
+tokens used
+42
