@@ -42,7 +42,7 @@ func TestBuildSpawnSpec_Defaults(t *testing.T) {
 	t.Setenv("CLANK_CLAUDE_ARGS", "")
 
 	a := New()
-	spec := a.BuildSpawnSpec("/work", map[string]string{}, "/home/user", 120, 40)
+	spec := a.BuildSpawnSpec("/work", map[string]string{}, "/home/user", 120, 40, "")
 
 	if spec.Command != "claude" {
 		t.Errorf("unexpected Command: %q", spec.Command)

@@ -15,7 +15,7 @@ type stubAdapter struct {
 
 func (s *stubAdapter) ID() string { return s.id }
 
-func (s *stubAdapter) BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int) adapter.SpawnSpec {
+func (s *stubAdapter) BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int, prompt string) adapter.SpawnSpec {
 	return adapter.SpawnSpec{}
 }
 

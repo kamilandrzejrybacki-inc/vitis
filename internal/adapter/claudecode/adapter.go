@@ -18,7 +18,7 @@ func (a *Adapter) ID() string {
 	return "claude-code"
 }
 
-func (a *Adapter) BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int) adapter.SpawnSpec {
+func (a *Adapter) BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int, _ string) adapter.SpawnSpec {
 	command, args := ResolveCommand(env)
 	return adapter.SpawnSpec{
 		Command:      command,

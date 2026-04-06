@@ -58,7 +58,7 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 	}
 
 	// 2. Build session.
-	session, spec, err := buildSession(provider, request, env, homeDir)
+	session, spec, err := buildSession(provider, request, env, homeDir, prompt)
 	if err != nil {
 		return nil, &model.RunError{Code: model.ErrorInternal, Message: err.Error()}
 	}
@@ -86,20 +86,22 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 		return nil, &model.RunError{Code: model.ErrorStore, Message: err.Error()}
 	}
 
-	_, writeErr := process.Write(provider.FormatPrompt(prompt))
-	if writeErr != nil {
-		status := model.RunFailed
-		endedAt := time.Now().UTC()
-		duration := endedAt.Sub(session.StartedAt).Milliseconds()
-		_ = deps.Store.UpdateSession(ctx, session.ID, model.SessionPatch{
-			Status:     &status,
-			EndedAt:    &endedAt,
-			DurationMs: &duration,
-		})
-		return resultWithError(ctx, session.ID, request.Provider, model.RunFailed, request.PeekLast, deps, &model.RunError{
-			Code:    model.ErrorPromptIO,
-			Message: writeErr.Error(),
-		})
+	if !spec.PromptInArgs {
+		_, writeErr := process.Write(provider.FormatPrompt(prompt))
+		if writeErr != nil {
+			status := model.RunFailed
+			endedAt := time.Now().UTC()
+			duration := endedAt.Sub(session.StartedAt).Milliseconds()
+			_ = deps.Store.UpdateSession(ctx, session.ID, model.SessionPatch{
+				Status:     &status,
+				EndedAt:    &endedAt,
+				DurationMs: &duration,
+			})
+			return resultWithError(ctx, session.ID, request.Provider, model.RunFailed, request.PeekLast, deps, &model.RunError{
+				Code:    model.ErrorPromptIO,
+				Message: writeErr.Error(),
+			})
+		}
 	}
 
 	runCtx, cancel := context.WithTimeout(ctx, time.Duration(request.TimeoutSec)*time.Second)
@@ -152,6 +154,7 @@ func buildSession(
 	request model.RunRequest,
 	env map[string]string,
 	homeDir string,
+	prompt string,
 ) (model.Session, adapter.SpawnSpec, error) {
 	sessionID, err := util.NewSessionID()
 	if err != nil {
@@ -167,7 +170,7 @@ func buildSession(
 		TerminalCols: intPtr(request.TerminalCols),
 		TerminalRows: intPtr(request.TerminalRows),
 	}
-	spec := provider.BuildSpawnSpec(request.Cwd, env, homeDir, request.TerminalCols, request.TerminalRows)
+	spec := provider.BuildSpawnSpec(request.Cwd, env, homeDir, request.TerminalCols, request.TerminalRows, prompt)
 	return session, spec, nil
 }
 
