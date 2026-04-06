@@ -52,7 +52,7 @@ func (a *Adapter) Observe(context adapter.CompletionContext) *adapter.Transcript
 		if matchAny(permissionPatterns, tail) {
 			return &adapter.TranscriptObservation{
 				Status:     model.RunPermissionPrompt,
-				Terminal:   true,
+				Terminal:   false,
 				Confidence: 0.7,
 				Reason:     "permission prompt detected",
 				Evidence:   []string{"permission_prompt"},

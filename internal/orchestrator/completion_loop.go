@@ -73,12 +73,19 @@ func waitForCompletionLoop(
 				ExitCode:       exitCode,
 				BytesSeen:      transcript.BytesSeen(),
 			})
-			if observation != nil && observation.Terminal {
+			if observation == nil {
+				continue
+			}
+			if observation.Terminal {
 				return &completionResult{
 					Observation: observation,
 					Transcript:  transcript,
 					ExitCode:    exitCode,
 				}, nil
+			}
+			// Non-terminal permission prompt: auto-confirm by sending Enter.
+			if observation.Status == model.RunPermissionPrompt {
+				_, _ = process.Write([]byte("\r"))
 			}
 		}
 	}
