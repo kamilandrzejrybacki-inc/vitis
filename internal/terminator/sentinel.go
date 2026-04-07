@@ -83,7 +83,7 @@ func (s *Sentinel) loop(ctx context.Context, conversationID string, b bus.Bus, t
 			if err := json.Unmarshal(msg.Payload, &turn); err != nil {
 				continue
 			}
-			if !strings.Contains(turn.Response, s.token) {
+			if !containsOnOwnLine(turn.Response, s.token) {
 				continue
 			}
 			verdict := &model.Verdict{
@@ -111,17 +111,42 @@ func (s *Sentinel) loop(ctx context.Context, conversationID string, b bus.Bus, t
 	}
 }
 
-// StripSentinel removes the first occurrence of token from response and
-// returns the result. Trailing whitespace introduced by the strip is
-// trimmed. Used by the broker to clean a peer's response before
+// containsOnOwnLine reports whether token appears on its own line in s.
+// A "line" is a sequence bounded by \n characters or the start/end of the
+// string. Leading and trailing whitespace (spaces, tabs, carriage returns)
+// on the line are ignored, but the token must occupy the entire line.
+func containsOnOwnLine(s, token string) bool {
+	if token == "" {
+		return false
+	}
+	for _, line := range strings.Split(s, "\n") {
+		if strings.TrimRight(line, "\r\t ") == token {
+			return true
+		}
+	}
+	return false
+}
+
+// StripSentinel removes the first line-anchored occurrence of token from
+// response and returns the result. Trailing whitespace introduced by the
+// strip is trimmed. Used by the broker to clean a peer's response before
 // constructing the next envelope so the sentinel never leaks across.
 func StripSentinel(response, token string) string {
 	if token == "" {
 		token = defaultSentinel
 	}
-	idx := strings.Index(response, token)
-	if idx < 0 {
+	lines := strings.Split(response, "\n")
+	var out []string
+	for _, line := range lines {
+		if strings.TrimRight(line, "\r\t ") == token {
+			// Stop here; strip the sentinel and everything after.
+			break
+		}
+		out = append(out, line)
+	}
+	if len(out) == len(lines) {
+		// Token not found on its own line; return unchanged.
 		return response
 	}
-	return strings.TrimRight(response[:idx], " \t\r\n")
+	return strings.TrimRight(strings.Join(out, "\n"), " \t\r\n")
 }

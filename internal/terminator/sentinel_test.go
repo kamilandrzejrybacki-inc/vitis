@@ -88,7 +88,41 @@ func TestSentinelIgnoresAbsentSentinel(t *testing.T) {
 }
 
 func TestSentinelStripFromResponse(t *testing.T) {
+	// Sentinel on its own line is stripped.
 	require.Equal(t, "I'm done.", StripSentinel("I'm done.\n<<END>>", "<<END>>"))
+	// No sentinel → unchanged.
 	require.Equal(t, "still talking", StripSentinel("still talking", "<<END>>"))
-	require.Equal(t, "before", StripSentinel("before<<END>>after", "<<END>>"))
+	// Mid-line sentinel is NOT stripped (line-anchored).
+	require.Equal(t, "before<<END>>after", StripSentinel("before<<END>>after", "<<END>>"))
+}
+
+func TestSentinelMidLineDoesNotFire(t *testing.T) {
+	b := inproc.New()
+	defer b.Close()
+	conv := model.Conversation{ID: "conv-midline"}
+	term := NewSentinel("<<END>>")
+	ctx := context.Background()
+	require.NoError(t, term.Start(ctx, conv, b))
+	defer term.Stop(context.Background())
+
+	ctlSub, ctlCancel, err := b.Subscribe(ctx, bus.TopicControl(conv.ID))
+	require.NoError(t, err)
+	defer ctlCancel()
+
+	// The sentinel appears mid-line — should NOT trigger termination.
+	payload, _ := json.Marshal(model.ConversationTurn{
+		Response: "I said <<END>> is a good idea but I'm not done yet.",
+	})
+	require.NoError(t, b.Publish(ctx, bus.TopicTurn(conv.ID), bus.BusMessage{
+		ConversationID: conv.ID,
+		Topic:          bus.TopicTurn(conv.ID),
+		Kind:           bus.KindTurn,
+		Payload:        payload,
+	}))
+
+	select {
+	case <-ctlSub:
+		t.Fatal("mid-line sentinel must not trigger termination")
+	case <-time.After(100 * time.Millisecond):
+	}
 }
