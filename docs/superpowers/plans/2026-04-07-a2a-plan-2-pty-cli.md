@@ -1664,3 +1664,4 @@ git commit -m "chore(plan): mark A2A plan 2 PTY+CLI execution complete"
   3. The `--peer-a-opt env_KEY=val` mechanism in `mockProviderAdapter.BuildSpawnSpec` reads `spec.Options["env_*"]` and forwards them as env vars; the test uses this. If the executor finds a simpler convention is preferable, adjust both call sites.
 
 <!-- end of plan 2 -->
+<!-- execution-completed: 2026-04-07T23:39:49+02:00 -->
