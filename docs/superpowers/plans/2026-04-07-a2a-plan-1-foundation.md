@@ -2523,3 +2523,5 @@ Walking the spec section by section:
 **Dispatch:** Plan 1 is ready for subagent-driven execution. The recommended path is to dispatch a fresh general-purpose subagent on the `claude-sonnet-4-6` model with the full plan file path and the instruction "execute every task in order, do not skip the commit step".
 
 <!-- end of plan 1 -->
+
+<!-- execution-started: 2026-04-07T23:04:11+02:00 -->
