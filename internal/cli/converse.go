@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -125,6 +127,19 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 	}
 	if *overallTimeout == 0 {
 		*overallTimeout = *maxTurns * *perTurnTimeout
+	}
+
+	// Sanitise file-system paths to prevent relative escape sequences.
+	*logPath = filepath.Clean(*logPath)
+	if *workingDir != "" {
+		*workingDir = filepath.Clean(*workingDir)
+		if fi, err := os.Stat(*workingDir); err != nil {
+			fmt.Fprintf(stderr, "converse: --working-directory %q: %v\n", *workingDir, err)
+			return 2
+		} else if !fi.IsDir() {
+			fmt.Fprintf(stderr, "converse: --working-directory %q is not a directory\n", *workingDir)
+			return 2
+		}
 	}
 
 	conv := model.Conversation{
