@@ -19,6 +19,7 @@ import (
 type Script struct {
 	Responses []string
 	Err       error // if non-nil, Deliver returns this error on the first call
+	StartErr  error // if non-nil, Start returns this error
 }
 
 // Transport is the scripted mock implementation of peer.PeerTransport.
@@ -30,6 +31,7 @@ type Transport struct {
 	delivered       int
 	started         bool
 	stopped         bool
+	stopCalls       int
 	conversationID  string
 	slot            model.PeerSlot
 	envelopeHistory []model.Envelope
@@ -49,9 +51,19 @@ func (p *Transport) EnvelopeHistory() []model.Envelope {
 	return out
 }
 
+// StopCalls returns the number of times Stop has been called.
+func (p *Transport) StopCalls() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.stopCalls
+}
+
 func (p *Transport) Start(_ context.Context, _ model.PeerSpec, _ bus.Bus, conversationID string, slot model.PeerSlot) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.script.StartErr != nil {
+		return p.script.StartErr
+	}
 	if p.started {
 		return errors.New("mock peer: already started")
 	}
@@ -114,5 +126,6 @@ func (p *Transport) Stop(_ context.Context, _ time.Duration) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.stopped = true
+	p.stopCalls++
 	return nil
 }

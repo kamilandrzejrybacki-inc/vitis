@@ -164,6 +164,29 @@ func TestBrokerContextCancellation(t *testing.T) {
 	require.Equal(t, model.ConvInterrupted, res.Conversation.Status)
 }
 
+func TestBrokerPeerBStartFailure(t *testing.T) {
+	b := inproc.New()
+	defer b.Close()
+	a := mock.New(mock.Script{Responses: []string{"unused"}})
+	bb := mock.New(mock.Script{StartErr: errForTesting("peer B startup failed")})
+	conv := newConv(5)
+	conv.ID = "conv-peerb-fail"
+	br := NewBroker(BrokerDeps{
+		Conversation: conv,
+		PeerA:        a,
+		PeerB:        bb,
+		Terminator:   terminator.NewSentinel("<<END>>"),
+		Bus:          b,
+		Store:        discardStore{},
+	})
+	ctx := context.Background()
+	res, err := br.Run(ctx)
+	require.NoError(t, err)
+	require.Equal(t, model.ConvError, res.Conversation.Status)
+	require.Empty(t, res.Turns)
+	require.Equal(t, 1, a.StopCalls(), "PeerA.Stop must be called when PeerB fails to start")
+}
+
 // publishControl publishes a ControlMsg on the conversation's control topic.
 func publishControl(b bus.Bus, convID string, ctl bus.ControlMsg) {
 	payload, _ := json.Marshal(ctl)
