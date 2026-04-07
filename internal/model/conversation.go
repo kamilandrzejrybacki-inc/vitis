@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 // ConversationStatus represents the lifecycle state of an A2A conversation.
 type ConversationStatus string
@@ -54,8 +56,8 @@ type Conversation struct {
 	EndedAt        *time.Time         `json:"ended_at,omitempty"`
 	Status         ConversationStatus `json:"status"`
 	MaxTurns       int                `json:"max_turns"`
-	PerTurnTimeout time.Duration      `json:"per_turn_timeout"`
-	OverallTimeout time.Duration      `json:"overall_timeout"`
+	PerTurnTimeout int64              `json:"per_turn_timeout_sec"`
+	OverallTimeout int64              `json:"overall_timeout_sec"`
 	Terminator     TerminatorSpec     `json:"terminator"`
 	PeerA          PeerSpec           `json:"peer_a"`
 	PeerB          PeerSpec           `json:"peer_b"`
@@ -63,6 +65,16 @@ type Conversation struct {
 	SeedB          string             `json:"seed_b"`
 	Opener         PeerSlot           `json:"opener"`
 	TurnsConsumed  int                `json:"turns_consumed"`
+}
+
+// PerTurnTimeoutDuration returns PerTurnTimeout as a time.Duration.
+func (c Conversation) PerTurnTimeoutDuration() time.Duration {
+	return time.Duration(c.PerTurnTimeout) * time.Second
+}
+
+// OverallTimeoutDuration returns OverallTimeout as a time.Duration.
+func (c Conversation) OverallTimeoutDuration() time.Duration {
+	return time.Duration(c.OverallTimeout) * time.Second
 }
 
 // ConversationPatch is the partial update set for an existing conversation.

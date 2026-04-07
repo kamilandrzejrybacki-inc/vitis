@@ -132,8 +132,8 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 		CreatedAt:      time.Now().UTC(),
 		Status:         model.ConvRunning,
 		MaxTurns:       *maxTurns,
-		PerTurnTimeout: time.Duration(*perTurnTimeout) * time.Second,
-		OverallTimeout: time.Duration(*overallTimeout) * time.Second,
+		PerTurnTimeout: int64(*perTurnTimeout),
+		OverallTimeout: int64(*overallTimeout),
 		Terminator:     model.TerminatorSpec{Kind: "sentinel", Sentinel: *sentinelTok},
 		PeerA:          model.PeerSpec{URI: *peerA, Options: mergeOptions(peerAOpts.values, *workingDir)},
 		PeerB:          model.PeerSpec{URI: *peerB, Options: mergeOptions(peerBOpts.values, *workingDir)},
@@ -153,8 +153,8 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 	defer b.Close()
 
 	spawner := provider.NewTerminalSpawner()
-	pa := provider.New(spawner, conv.PerTurnTimeout)
-	pb := provider.New(spawner, conv.PerTurnTimeout)
+	pa := provider.New(spawner, conv.PerTurnTimeoutDuration())
+	pb := provider.New(spawner, conv.PerTurnTimeoutDuration())
 	term := terminator.NewSentinel(*sentinelTok)
 
 	deps := conversation.BrokerDeps{
@@ -167,7 +167,7 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 	}
 	br := conversation.NewBroker(deps)
 
-	runCtx, runCancel := context.WithTimeout(ctx, conv.OverallTimeout)
+	runCtx, runCancel := context.WithTimeout(ctx, conv.OverallTimeoutDuration())
 	defer runCancel()
 
 	var streamWg sync.WaitGroup

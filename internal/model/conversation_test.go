@@ -39,8 +39,8 @@ func TestConversationJSONRoundTrip(t *testing.T) {
 		EndedAt:        &end,
 		Status:         ConvCompletedSentinel,
 		MaxTurns:       50,
-		PerTurnTimeout: 300 * time.Second,
-		OverallTimeout: 3600 * time.Second,
+		PerTurnTimeout: 300,
+		OverallTimeout: 3600,
 		Terminator: TerminatorSpec{
 			Kind:     "sentinel",
 			Sentinel: "<<END>>",
