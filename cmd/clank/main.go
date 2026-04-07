@@ -14,7 +14,7 @@ func main() {
 
 func run(ctx context.Context, args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: clank <run|peek|doctor>")
+		fmt.Fprintln(os.Stderr, "usage: clank <run|peek|converse|doctor>")
 		return 2
 	}
 
@@ -23,6 +23,8 @@ func run(ctx context.Context, args []string) int {
 		return cli.RunCommand(ctx, args[1:], os.Stdout, os.Stderr)
 	case "peek":
 		return cli.PeekCommand(ctx, args[1:], os.Stdout, os.Stderr)
+	case "converse":
+		return cli.ConverseCommand(ctx, args[1:], os.Stdout, os.Stderr)
 	case "doctor":
 		return cli.DoctorCommand(ctx, args[1:], os.Stdout, os.Stderr)
 	default:
