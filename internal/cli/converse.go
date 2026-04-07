@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
@@ -166,14 +167,24 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 	}
 	br := conversation.NewBroker(deps)
 
-	runCtx, cancel := context.WithTimeout(ctx, conv.OverallTimeout)
-	defer cancel()
+	runCtx, runCancel := context.WithTimeout(ctx, conv.OverallTimeout)
+	defer runCancel()
 
+	var streamWg sync.WaitGroup
 	if *streamTurns {
-		go streamTurnsTo(runCtx, b, conv.ID, stdout)
+		streamWg.Add(1)
+		go func() {
+			defer streamWg.Done()
+			streamTurnsTo(runCtx, b, conv.ID, stdout)
+		}()
 	}
 
 	res, err := br.Run(runCtx)
+	// Cancel runCtx explicitly so the stream goroutine exits promptly, then
+	// wait for it to finish before writing the final result to stdout.
+	runCancel()
+	streamWg.Wait()
+
 	if err != nil {
 		fmt.Fprintf(stderr, "converse: broker error: %v\n", err)
 		return 1
