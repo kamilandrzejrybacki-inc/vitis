@@ -31,6 +31,9 @@ func TestBuildEnvelopeTurn1IncludesBriefing(t *testing.T) {
 	require.Contains(t, env.Body, "Discuss X")
 	require.Contains(t, env.Body, "TURN_END_abc123def456")
 	require.Contains(t, env.Body, "[conversation: conv-1  turn 1 of 50  from: seed]")
+	// H1: briefing must be present in the body so PTY transports deliver it.
+	require.Contains(t, env.Body, "peer-a")
+	require.Contains(t, env.Body, "<<END>>")
 }
 
 func TestBuildEnvelopeTurnNOmitsBriefing(t *testing.T) {

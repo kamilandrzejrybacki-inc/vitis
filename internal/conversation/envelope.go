@@ -17,7 +17,9 @@ func BuildEnvelopeTurn1(conv model.Conversation, slot model.PeerSlot, marker str
 		Terminator: conv.Terminator,
 	})
 	seed := seedFor(conv, slot)
-	body := renderBody(conv.ID, 1, conv.MaxTurns, "seed", seed, marker)
+	seedBody := renderBody(conv.ID, 1, conv.MaxTurns, "seed", seed, marker)
+	// Prepend the briefing to the body so PTY transports deliver it in-band.
+	body := briefing + "\n\n" + seedBody
 	return model.Envelope{
 		ConversationID:  conv.ID,
 		TurnIndex:       1,
