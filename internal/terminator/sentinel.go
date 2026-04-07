@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
@@ -109,6 +110,7 @@ func (s *Sentinel) loop(ctx context.Context, conversationID string, b bus.Bus, t
 				Topic:          bus.TopicControl(conversationID),
 				Kind:           bus.KindControl,
 				Payload:        payload,
+				Timestamp:      time.Now().UTC(),
 			})
 		}
 	}
