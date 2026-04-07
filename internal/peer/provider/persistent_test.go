@@ -58,7 +58,7 @@ func (f *fakePTY) emit(s string) {
 func TestConverseTurnReturnsContentBeforeMarker(t *testing.T) {
 	pty := newFakePTY()
 	pp := NewPersistentProcess(pty)
-	defer pp.Close()
+	defer pp.Close(0)
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)
@@ -75,7 +75,7 @@ func TestConverseTurnReturnsContentBeforeMarker(t *testing.T) {
 func TestConverseTurnAcrossMultipleEmits(t *testing.T) {
 	pty := newFakePTY()
 	pp := NewPersistentProcess(pty)
-	defer pp.Close()
+	defer pp.Close(0)
 
 	go func() {
 		pty.emit("first chunk ")
@@ -93,7 +93,7 @@ func TestConverseTurnAcrossMultipleEmits(t *testing.T) {
 func TestConverseTurnSequentialTurnsAdvanceOffset(t *testing.T) {
 	pty := newFakePTY()
 	pp := NewPersistentProcess(pty)
-	defer pp.Close()
+	defer pp.Close(0)
 
 	// Pre-load both turns into the channel; PersistentProcess must NOT bleed
 	// turn 1 content into turn 2's response.
@@ -117,7 +117,7 @@ func TestConverseTurnSequentialTurnsAdvanceOffset(t *testing.T) {
 func TestConverseTurnTimeout(t *testing.T) {
 	pty := newFakePTY()
 	pp := NewPersistentProcess(pty)
-	defer pp.Close()
+	defer pp.Close(0)
 	ctx := context.Background()
 	_, err := pp.ConverseTurn(ctx, []byte("e"), "TURN_END_neverappears", 50*time.Millisecond)
 	require.Error(t, err)
@@ -127,7 +127,7 @@ func TestConverseTurnTimeout(t *testing.T) {
 func TestConverseTurnContextCancel(t *testing.T) {
 	pty := newFakePTY()
 	pp := NewPersistentProcess(pty)
-	defer pp.Close()
+	defer pp.Close(0)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
 	_, err := pp.ConverseTurn(ctx, []byte("e"), "TURN_END_xxxxxxxxxxxx", time.Second)
@@ -137,7 +137,7 @@ func TestConverseTurnContextCancel(t *testing.T) {
 func TestConverseTurnProcessExits(t *testing.T) {
 	pty := newFakePTY()
 	pp := NewPersistentProcess(pty)
-	defer pp.Close()
+	defer pp.Close(0)
 	go func() { time.Sleep(20 * time.Millisecond); _ = pty.Terminate(0) }()
 	_, err := pp.ConverseTurn(context.Background(), []byte("e"), "TURN_END_xxxxxxxxxxxx", time.Second)
 	require.Error(t, err)
@@ -147,7 +147,7 @@ func TestConverseTurnProcessExits(t *testing.T) {
 func TestEnvelopeIsWrittenToPTY(t *testing.T) {
 	pty := newFakePTY()
 	pp := NewPersistentProcess(pty)
-	defer pp.Close()
+	defer pp.Close(0)
 	go func() { time.Sleep(5 * time.Millisecond); pty.emit("ok\nTURN_END_zzzzzzzzzzzz\n") }()
 	_, err := pp.ConverseTurn(context.Background(), []byte("hello envelope"), "TURN_END_zzzzzzzzzzzz", time.Second)
 	require.NoError(t, err)

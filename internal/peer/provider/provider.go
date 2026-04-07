@@ -86,8 +86,8 @@ func (t *Transport) Deliver(ctx context.Context, env model.Envelope) (model.Conv
 	}, nil
 }
 
-// Stop terminates the persistent process.
-func (t *Transport) Stop(_ context.Context, _ time.Duration) error {
+// Stop terminates the persistent process with the given grace period.
+func (t *Transport) Stop(_ context.Context, grace time.Duration) error {
 	t.mu.Lock()
 	pp := t.process
 	t.process = nil
@@ -95,5 +95,5 @@ func (t *Transport) Stop(_ context.Context, _ time.Duration) error {
 	if pp == nil {
 		return nil
 	}
-	return pp.Close()
+	return pp.Close(grace)
 }

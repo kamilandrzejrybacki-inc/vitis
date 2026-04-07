@@ -162,9 +162,10 @@ func (p *PersistentProcess) ConverseTurn(ctx context.Context, envelopeBytes []by
 	}
 }
 
-// Close terminates the underlying process with a 1s grace period and
-// waits for the pump goroutine to finish. Safe to call multiple times.
-func (p *PersistentProcess) Close() error {
+// Close terminates the underlying process with the given grace period and
+// waits for the pump goroutine to finish. If grace is zero, a default of
+// 1 second is used. Safe to call multiple times.
+func (p *PersistentProcess) Close(grace time.Duration) error {
 	p.mu.Lock()
 	if p.closed {
 		p.mu.Unlock()
@@ -173,7 +174,10 @@ func (p *PersistentProcess) Close() error {
 	p.closed = true
 	p.mu.Unlock()
 
-	_ = p.inner.Terminate(1000)
+	if grace <= 0 {
+		grace = time.Second
+	}
+	_ = p.inner.Terminate(int(grace.Milliseconds()))
 	<-p.pumpDone
 	return nil
 }
