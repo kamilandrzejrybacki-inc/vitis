@@ -23,6 +23,12 @@ type ConversationStore interface {
 	AppendConversationTurn(ctx context.Context, turn model.ConversationTurn) error
 }
 
+// defaultDrainWindow is the default time budget given to async bus
+// subscribers (e.g. the sentinel goroutine) to react to a published turn
+// before the broker checks for verdicts. 50ms is imperceptible to users
+// but provides a much wider scheduling margin than the original 5ms.
+const defaultDrainWindow = 50 * time.Millisecond
+
 // BrokerDeps bundles the dependencies needed to construct a Broker.
 type BrokerDeps struct {
 	Conversation model.Conversation
@@ -31,6 +37,9 @@ type BrokerDeps struct {
 	Terminator   terminator.Terminator
 	Bus          bus.Bus
 	Store        ConversationStore
+	// DrainWindow overrides the control-channel drain timeout. Zero means
+	// use the default (50ms). Tests may set this to a shorter value.
+	DrainWindow time.Duration
 }
 
 // Broker is the conversation state machine.
@@ -135,7 +144,11 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 
 		// Drain control: try a timed drain to allow async bus subscribers
 		// (terminator goroutines) time to react to the published turn.
-		drained := drainControlTimed(ctlSub, 5*time.Millisecond)
+		drainWindow := b.deps.DrainWindow
+		if drainWindow <= 0 {
+			drainWindow = defaultDrainWindow
+		}
+		drained := drainControlTimed(ctlSub, drainWindow)
 		for _, ctl := range drained {
 			switch ctl.Kind {
 			case bus.ControlVerdict:
@@ -201,26 +214,6 @@ func (b *Broker) finalize(ctx context.Context, conv model.Conversation, turns []
 		TerminatorNote: note,
 		Warnings:       warnings,
 	}, nil
-}
-
-// drainControl pulls every currently buffered control message off the
-// channel without blocking and returns them in arrival order.
-func drainControl(ch <-chan bus.BusMessage) []bus.ControlMsg {
-	var out []bus.ControlMsg
-	for {
-		select {
-		case msg, open := <-ch:
-			if !open {
-				return out
-			}
-			var ctl bus.ControlMsg
-			if err := json.Unmarshal(msg.Payload, &ctl); err == nil {
-				out = append(out, ctl)
-			}
-		default:
-			return out
-		}
-	}
 }
 
 // drainControlTimed waits up to deadline for the first message on ch, then
