@@ -11,7 +11,11 @@ import (
 
 	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/clank/internal/peer"
 )
+
+// Compile-time assertion that Transport implements peer.PeerTransport.
+var _ peer.PeerTransport = (*Transport)(nil)
 
 // Script is the canned exchange this mock will execute. Responses are
 // consumed in order; if Deliver is called more times than there are

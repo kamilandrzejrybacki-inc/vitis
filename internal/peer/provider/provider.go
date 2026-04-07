@@ -8,7 +8,11 @@ import (
 
 	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/clank/internal/peer"
 )
+
+// Compile-time assertion that Transport implements peer.PeerTransport.
+var _ peer.PeerTransport = (*Transport)(nil)
 
 // Spawner constructs a raw PTY process for the given peer spec. Production
 // uses terminal.Runtime.Spawn under the hood; tests inject a fake spawner

@@ -12,6 +12,9 @@ import (
 
 const defaultSentinel = "<<END>>"
 
+// Compile-time assertion that Sentinel implements Terminator.
+var _ Terminator = (*Sentinel)(nil)
+
 // Sentinel is a Terminator that publishes a terminate verdict the first
 // time it sees the configured token in a turn response.
 type Sentinel struct {

@@ -13,6 +13,9 @@ import (
 	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
 )
 
+// Compile-time assertion that Bus implements bus.Bus.
+var _ bus.Bus = (*Bus)(nil)
+
 // Default subscriber buffer size. Tunable per-Bus via WithBufferSize.
 const defaultBufferSize = 64
 
