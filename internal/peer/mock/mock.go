@@ -84,30 +84,43 @@ func (p *Transport) Deliver(ctx context.Context, env model.Envelope) (model.Conv
 		return model.ConversationTurn{}, ctx.Err()
 	default:
 	}
+
+	turn, scriptExhausted, err := p.deliverLocked(env)
+	if err != nil {
+		return model.ConversationTurn{}, err
+	}
+	if scriptExhausted {
+		// Script exhausted: block until context is cancelled so tests that
+		// cancel mid-conversation can observe ConvInterrupted instead of
+		// ConvError. The lock is intentionally NOT held during this wait.
+		<-ctx.Done()
+		return model.ConversationTurn{}, ctx.Err()
+	}
+	return turn, nil
+}
+
+// deliverLocked holds the lock for the duration of validation and response
+// selection. Returns (turn, false, nil) on success, (zero, true, nil) when
+// the script is exhausted (caller should block on context), or (zero, false,
+// err) on validation errors.
+func (p *Transport) deliverLocked(env model.Envelope) (model.ConversationTurn, bool, error) {
 	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if !p.started {
-		p.mu.Unlock()
-		return model.ConversationTurn{}, errors.New("mock peer: deliver before start")
+		return model.ConversationTurn{}, false, errors.New("mock peer: deliver before start")
 	}
 	if p.stopped {
-		p.mu.Unlock()
-		return model.ConversationTurn{}, errors.New("mock peer: deliver after stop")
+		return model.ConversationTurn{}, false, errors.New("mock peer: deliver after stop")
 	}
 	if p.script.Err != nil {
 		err := p.script.Err
 		p.script.Err = nil
-		p.mu.Unlock()
-		return model.ConversationTurn{}, err
+		return model.ConversationTurn{}, false, err
 	}
 	if p.delivered >= len(p.script.Responses) {
-		p.mu.Unlock()
-		// Script exhausted: block until context is cancelled so tests that
-		// cancel mid-conversation can observe ConvInterrupted instead of
-		// ConvError.
-		<-ctx.Done()
-		return model.ConversationTurn{}, ctx.Err()
+		return model.ConversationTurn{}, true, nil
 	}
-	defer p.mu.Unlock()
 	resp := p.script.Responses[p.delivered]
 	p.delivered++
 	p.envelopeHistory = append(p.envelopeHistory, env)
@@ -123,7 +136,7 @@ func (p *Transport) Deliver(ctx context.Context, env model.Envelope) (model.Conv
 		EndedAt:              now,
 		CompletionConfidence: 1.0,
 		ParserConfidence:     1.0,
-	}, nil
+	}, false, nil
 }
 
 func (p *Transport) Stop(_ context.Context, _ time.Duration) error {
