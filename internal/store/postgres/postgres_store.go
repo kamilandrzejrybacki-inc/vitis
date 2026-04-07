@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -166,3 +167,18 @@ func (s *Store) Close() error {
 	return nil
 }
 
+func (s *Store) CreateConversation(ctx context.Context, conv model.Conversation) error {
+	return errors.New("postgres backend: CreateConversation not implemented in M1 (plan 3 adds it)")
+}
+
+func (s *Store) UpdateConversation(ctx context.Context, conversationID string, patch model.ConversationPatch) error {
+	return errors.New("postgres backend: UpdateConversation not implemented in M1 (plan 3 adds it)")
+}
+
+func (s *Store) AppendConversationTurn(ctx context.Context, turn model.ConversationTurn) error {
+	return errors.New("postgres backend: AppendConversationTurn not implemented in M1 (plan 3 adds it)")
+}
+
+func (s *Store) PeekConversationTurns(ctx context.Context, conversationID string, lastN int) ([]model.ConversationTurn, error) {
+	return nil, errors.New("postgres backend: PeekConversationTurns not implemented in M1 (plan 3 adds it)")
+}

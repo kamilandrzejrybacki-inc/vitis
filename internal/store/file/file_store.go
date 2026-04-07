@@ -148,6 +148,85 @@ func (s *Store) AppendStreamEvent(_ context.Context, event model.StoredStreamEve
 
 func (s *Store) Close() error { return nil }
 
+// --- Conversation persistence (A2A) ---
+
+func (s *Store) CreateConversation(_ context.Context, conv model.Conversation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.MkdirAll(s.conversationsDir(), 0o700); err != nil {
+		return fmt.Errorf("mkdir conversations: %w", err)
+	}
+	return s.writeJSONAtomic(s.conversationPath(conv.ID), conv)
+}
+
+func (s *Store) UpdateConversation(_ context.Context, conversationID string, patch model.ConversationPatch) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var conv model.Conversation
+	if err := s.readJSON(s.conversationPath(conversationID), &conv); err != nil {
+		return err
+	}
+	if patch.Status != nil {
+		conv.Status = *patch.Status
+	}
+	if patch.EndedAt != nil {
+		conv.EndedAt = patch.EndedAt
+	}
+	if patch.TurnsConsumed != nil {
+		conv.TurnsConsumed = *patch.TurnsConsumed
+	}
+	return s.writeJSONAtomic(s.conversationPath(conversationID), conv)
+}
+
+func (s *Store) AppendConversationTurn(_ context.Context, turn model.ConversationTurn) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.MkdirAll(s.conversationsDir(), 0o700); err != nil {
+		return fmt.Errorf("mkdir conversations: %w", err)
+	}
+	return s.appendJSONL(s.conversationTurnPath(turn.ConversationID), turn)
+}
+
+func (s *Store) PeekConversationTurns(_ context.Context, conversationID string, lastN int) ([]model.ConversationTurn, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	file, err := os.Open(s.conversationTurnPath(conversationID))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("open conversation turns: %w", err)
+	}
+	defer file.Close()
+
+	var turns []model.ConversationTurn
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		var turn model.ConversationTurn
+		if err := json.Unmarshal(scanner.Bytes(), &turn); err != nil {
+			return nil, fmt.Errorf("decode conversation turn: %w", err)
+		}
+		turns = append(turns, turn)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan conversation turns: %w", err)
+	}
+	sort.Slice(turns, func(i, j int) bool { return turns[i].Index < turns[j].Index })
+	if lastN > 0 && len(turns) > lastN {
+		turns = turns[len(turns)-lastN:]
+	}
+	return turns, nil
+}
+
+func (s *Store) conversationsDir() string { return filepath.Join(s.root, "conversations") }
+func (s *Store) conversationPath(id string) string {
+	return filepath.Join(s.conversationsDir(), id+".json")
+}
+func (s *Store) conversationTurnPath(id string) string {
+	return filepath.Join(s.conversationsDir(), id+".jsonl")
+}
+
 func (s *Store) sessionPath(id string) string { return filepath.Join(s.sessionsDir(), id+".json") }
 func (s *Store) turnPath(id string) string    { return filepath.Join(s.turnsDir(), id+".jsonl") }
 func (s *Store) rawPath(id string) string     { return filepath.Join(s.rawDir(), id+".jsonl") }
