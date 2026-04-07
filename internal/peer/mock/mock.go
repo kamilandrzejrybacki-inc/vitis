@@ -21,8 +21,10 @@ type Script struct {
 	Err       error // if non-nil, Deliver returns this error on the first call
 }
 
-// PeerTransport is the scripted mock implementation.
-type PeerTransport struct {
+// Transport is the scripted mock implementation of peer.PeerTransport.
+// The type is named Transport (matching provider.Transport) to avoid
+// shadowing the peer.PeerTransport interface it implements.
+type Transport struct {
 	mu              sync.Mutex
 	script          Script
 	delivered       int
@@ -34,12 +36,12 @@ type PeerTransport struct {
 }
 
 // New constructs a mock peer transport from a Script.
-func New(script Script) *PeerTransport {
-	return &PeerTransport{script: script}
+func New(script Script) *Transport {
+	return &Transport{script: script}
 }
 
 // EnvelopeHistory returns a copy of every envelope delivered so far.
-func (p *PeerTransport) EnvelopeHistory() []model.Envelope {
+func (p *Transport) EnvelopeHistory() []model.Envelope {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	out := make([]model.Envelope, len(p.envelopeHistory))
@@ -47,7 +49,7 @@ func (p *PeerTransport) EnvelopeHistory() []model.Envelope {
 	return out
 }
 
-func (p *PeerTransport) Start(_ context.Context, _ model.PeerSpec, _ bus.Bus, conversationID string, slot model.PeerSlot) error {
+func (p *Transport) Start(_ context.Context, _ model.PeerSpec, _ bus.Bus, conversationID string, slot model.PeerSlot) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
@@ -59,7 +61,7 @@ func (p *PeerTransport) Start(_ context.Context, _ model.PeerSpec, _ bus.Bus, co
 	return nil
 }
 
-func (p *PeerTransport) Deliver(ctx context.Context, env model.Envelope) (model.ConversationTurn, error) {
+func (p *Transport) Deliver(ctx context.Context, env model.Envelope) (model.ConversationTurn, error) {
 	// Check context before acquiring lock so cancellation is detected promptly.
 	select {
 	case <-ctx.Done():
@@ -108,7 +110,7 @@ func (p *PeerTransport) Deliver(ctx context.Context, env model.Envelope) (model.
 	}, nil
 }
 
-func (p *PeerTransport) Stop(_ context.Context, _ time.Duration) error {
+func (p *Transport) Stop(_ context.Context, _ time.Duration) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.stopped = true
