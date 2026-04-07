@@ -6,7 +6,6 @@ package mock
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -60,23 +59,37 @@ func (p *PeerTransport) Start(_ context.Context, _ model.PeerSpec, _ bus.Bus, co
 	return nil
 }
 
-func (p *PeerTransport) Deliver(_ context.Context, env model.Envelope) (model.ConversationTurn, error) {
+func (p *PeerTransport) Deliver(ctx context.Context, env model.Envelope) (model.ConversationTurn, error) {
+	// Check context before acquiring lock so cancellation is detected promptly.
+	select {
+	case <-ctx.Done():
+		return model.ConversationTurn{}, ctx.Err()
+	default:
+	}
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	if !p.started {
+		p.mu.Unlock()
 		return model.ConversationTurn{}, errors.New("mock peer: deliver before start")
 	}
 	if p.stopped {
+		p.mu.Unlock()
 		return model.ConversationTurn{}, errors.New("mock peer: deliver after stop")
 	}
 	if p.script.Err != nil {
 		err := p.script.Err
 		p.script.Err = nil
+		p.mu.Unlock()
 		return model.ConversationTurn{}, err
 	}
 	if p.delivered >= len(p.script.Responses) {
-		return model.ConversationTurn{}, fmt.Errorf("mock peer: script exhausted at delivery %d", p.delivered+1)
+		p.mu.Unlock()
+		// Script exhausted: block until context is cancelled so tests that
+		// cancel mid-conversation can observe ConvInterrupted instead of
+		// ConvError.
+		<-ctx.Done()
+		return model.ConversationTurn{}, ctx.Err()
 	}
+	defer p.mu.Unlock()
 	resp := p.script.Responses[p.delivered]
 	p.delivered++
 	p.envelopeHistory = append(p.envelopeHistory, env)

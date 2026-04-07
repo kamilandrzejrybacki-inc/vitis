@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -41,6 +42,18 @@ func (s *fakeStore) PeekTurns(_ context.Context, sessionID string, lastN int) ([
 func (s *fakeStore) AppendStreamEvent(_ context.Context, event model.StoredStreamEvent) error {
 	return nil
 }
+func (s *fakeStore) CreateConversation(_ context.Context, _ model.Conversation) error {
+	return nil
+}
+func (s *fakeStore) UpdateConversation(_ context.Context, _ string, _ model.ConversationPatch) error {
+	return nil
+}
+func (s *fakeStore) AppendConversationTurn(_ context.Context, _ model.ConversationTurn) error {
+	return nil
+}
+func (s *fakeStore) PeekConversationTurns(_ context.Context, _ string, _ int) ([]model.ConversationTurn, error) {
+	return nil, nil
+}
 func (s *fakeStore) Close() error { return nil }
 
 type fakeRuntime struct {
@@ -52,18 +65,26 @@ func (r *fakeRuntime) Spawn(spec adapter.SpawnSpec) (terminal.PseudoTerminalProc
 }
 
 type fakeProcess struct {
-	output chan model.StreamEvent
-	done   chan model.ExitResult
+	output  chan model.StreamEvent
+	done    chan model.ExitResult
+	onWrite func() // called before emitting output, used to write JSONL sidecars in tests
 }
 
 func newFakeProcess() *fakeProcess {
-	return &fakeProcess{
+	p := &fakeProcess{
 		output: make(chan model.StreamEvent, 4),
 		done:   make(chan model.ExitResult, 1),
 	}
+	// Pre-emit the ready-prompt signal so the completion loop's Phase 1
+	// (waiting for ReadyPattern "❯") can complete before Write is called.
+	p.output <- model.StreamEvent{Timestamp: time.Now(), Kind: model.StreamEventOutput, Data: []byte("❯ \r\n")}
+	return p
 }
 
 func (p *fakeProcess) Write(data []byte) (int, error) {
+	if p.onWrite != nil {
+		p.onWrite()
+	}
 	p.output <- model.StreamEvent{Timestamp: time.Now(), Kind: model.StreamEventOutput, Data: []byte("answer\n")}
 	p.done <- model.ExitResult{Code: 0}
 	close(p.done)
@@ -95,10 +116,10 @@ func newBlockingProcess() *blockingProcess {
 	}
 }
 
-func (p *blockingProcess) Write(_ []byte) (int, error)   { return 0, nil }
+func (p *blockingProcess) Write(_ []byte) (int, error)      { return 0, nil }
 func (p *blockingProcess) Output() <-chan model.StreamEvent { return p.output }
-func (p *blockingProcess) Done() <-chan model.ExitResult  { return p.done }
-func (p *blockingProcess) Terminate(_ int) error          { return nil }
+func (p *blockingProcess) Done() <-chan model.ExitResult    { return p.done }
+func (p *blockingProcess) Terminate(_ int) error            { return nil }
 
 func TestRunProviderNotFound(t *testing.T) {
 	store := newFakeStore()
@@ -185,17 +206,34 @@ func TestRunTimeout(t *testing.T) {
 }
 
 func TestRunHappyPath(t *testing.T) {
+	tmpHome := t.TempDir()
+	cwd := t.TempDir()
+
+	// Compute the same watch dir that BuildSpawnSpec derives so the JSONL
+	// written by onWrite is found by ExtractResponse.
+	escaped := strings.ReplaceAll(cwd, "/", "-")
+	watchDir := filepath.Join(tmpHome, ".claude", "projects", escaped)
+
 	store := newFakeStore()
 	process := newFakeProcess()
+	process.onWrite = func() {
+		if err := os.MkdirAll(watchDir, 0o755); err != nil {
+			return
+		}
+		jsonl := `{"type":"user","message":{"role":"user","content":[{"type":"text","text":"hello"}]}}` + "\n" +
+			`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"answer"}],"stop_reason":"end_turn"}}` + "\n"
+		_ = os.WriteFile(filepath.Join(watchDir, "test-session.jsonl"), []byte(jsonl), 0o600)
+	}
 	deps := Dependencies{
 		Adapters: adapter.NewRegistry(claudecode.New()),
 		Runtime:  &fakeRuntime{process: process},
 		Store:    store,
 	}
 	result, err := Run(context.Background(), model.RunRequest{
-		Provider:   "claude-code",
-		Prompt:     "hello",
-		LogBackend: "file",
+		Provider: "claude-code",
+		Prompt:   "hello",
+		HomeDir:  tmpHome,
+		Cwd:      cwd,
 	}, deps)
 	if err != nil {
 		t.Fatalf("run: %v", err)
