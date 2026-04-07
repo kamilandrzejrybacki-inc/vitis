@@ -99,10 +99,18 @@ type ConversationTurn struct {
 	Warnings             []string  `json:"warnings,omitempty"`
 }
 
+// VerdictDecision is the typed decision value in a Verdict.
+type VerdictDecision string
+
+const (
+	DecisionContinue  VerdictDecision = "continue"
+	DecisionTerminate VerdictDecision = "terminate"
+)
+
 // Verdict is published by terminators to end a conversation.
 type Verdict struct {
 	ConversationID string             `json:"conversation_id"`
-	Decision       string             `json:"decision"` // "continue" | "terminate"
+	Decision       VerdictDecision    `json:"decision"`
 	Reason         string             `json:"reason"`
 	Status         ConversationStatus `json:"status"`
 }

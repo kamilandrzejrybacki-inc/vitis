@@ -158,7 +158,7 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 		for _, ctl := range drained {
 			switch ctl.Kind {
 			case bus.ControlVerdict:
-				if ctl.Verdict != nil && ctl.Verdict.Decision == "terminate" {
+				if ctl.Verdict != nil && ctl.Verdict.Decision == model.DecisionTerminate {
 					return b.finalize(ctx, conv, turns, warnings, ctl.Verdict.Status, ctl.Verdict.Reason)
 				}
 			case bus.ControlPeerCrashed:

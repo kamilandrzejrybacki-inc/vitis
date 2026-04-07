@@ -52,7 +52,7 @@ func TestSentinelDetectsAndPublishesVerdict(t *testing.T) {
 		require.NoError(t, json.Unmarshal(msg.Payload, &ctl))
 		require.Equal(t, bus.ControlVerdict, ctl.Kind)
 		require.NotNil(t, ctl.Verdict)
-		require.Equal(t, "terminate", ctl.Verdict.Decision)
+		require.Equal(t, model.DecisionTerminate, ctl.Verdict.Decision)
 		require.Equal(t, model.ConvCompletedSentinel, ctl.Verdict.Status)
 	case <-time.After(time.Second):
 		t.Fatal("expected verdict on control topic")

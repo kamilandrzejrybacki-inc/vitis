@@ -92,7 +92,7 @@ func (s *Sentinel) loop(ctx context.Context, conversationID string, b bus.Bus, t
 			}
 			verdict := &model.Verdict{
 				ConversationID: conversationID,
-				Decision:       "terminate",
+				Decision:       model.DecisionTerminate,
 				Reason:         "sentinel token observed",
 				Status:         model.ConvCompletedSentinel,
 			}
