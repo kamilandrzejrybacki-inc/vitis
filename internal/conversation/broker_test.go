@@ -2,11 +2,13 @@ package conversation
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/bus/inproc"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/peer/mock"
@@ -160,6 +162,91 @@ func TestBrokerContextCancellation(t *testing.T) {
 	res, err := br.Run(ctx)
 	require.NoError(t, err)
 	require.Equal(t, model.ConvInterrupted, res.Conversation.Status)
+}
+
+// publishControl publishes a ControlMsg on the conversation's control topic.
+func publishControl(b bus.Bus, convID string, ctl bus.ControlMsg) {
+	payload, _ := json.Marshal(ctl)
+	_ = b.Publish(context.Background(), bus.TopicControl(convID), bus.BusMessage{
+		ConversationID: convID,
+		Topic:          bus.TopicControl(convID),
+		Kind:           bus.KindControl,
+		Payload:        payload,
+		Timestamp:      time.Now().UTC(),
+	})
+}
+
+func TestBrokerPeerCrashedControlMessage(t *testing.T) {
+	b := inproc.New()
+	defer b.Close()
+	// Peer A blocks on second deliver so we can inject control in the meantime.
+	a := mock.New(mock.Script{Responses: []string{"a1"}})
+	bb := mock.New(mock.Script{Responses: []string{"b1"}})
+	conv := newConv(50)
+	conv.ID = "conv-crashed"
+	// Use a short drain window so the test completes quickly.
+	br := NewBroker(BrokerDeps{
+		Conversation: conv,
+		PeerA:        a,
+		PeerB:        bb,
+		Terminator:   terminator.NewSentinel("<<END>>"),
+		Bus:          b,
+		Store:        discardStore{},
+		DrainWindow:  100 * time.Millisecond,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// After the first turn is published, inject a PeerCrashed control message.
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		publishControl(b, conv.ID, bus.ControlMsg{
+			ConversationID: conv.ID,
+			Kind:           bus.ControlPeerCrashed,
+			Slot:           model.PeerSlotA,
+			Detail:         "simulated crash",
+		})
+	}()
+
+	res, err := br.Run(ctx)
+	require.NoError(t, err)
+	require.Equal(t, model.ConvPeerCrashed, res.Conversation.Status)
+	require.Equal(t, 1, len(res.Turns))
+}
+
+func TestBrokerPeerBlockedControlMessage(t *testing.T) {
+	b := inproc.New()
+	defer b.Close()
+	a := mock.New(mock.Script{Responses: []string{"a1"}})
+	bb := mock.New(mock.Script{Responses: []string{"b1"}})
+	conv := newConv(50)
+	conv.ID = "conv-blocked"
+	br := NewBroker(BrokerDeps{
+		Conversation: conv,
+		PeerA:        a,
+		PeerB:        bb,
+		Terminator:   terminator.NewSentinel("<<END>>"),
+		Bus:          b,
+		Store:        discardStore{},
+		DrainWindow:  100 * time.Millisecond,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		publishControl(b, conv.ID, bus.ControlMsg{
+			ConversationID: conv.ID,
+			Kind:           bus.ControlPeerBlocked,
+			Slot:           model.PeerSlotB,
+			Detail:         "simulated block",
+		})
+	}()
+
+	res, err := br.Run(ctx)
+	require.NoError(t, err)
+	require.Equal(t, model.ConvPeerBlocked, res.Conversation.Status)
+	require.Equal(t, 1, len(res.Turns))
 }
 
 type stringErr string
