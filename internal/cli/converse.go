@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -125,7 +126,20 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 		fmt.Fprintln(stderr, "converse: --per-turn-timeout must be positive")
 		return 2
 	}
+	if *perTurnTimeout > 3600 {
+		fmt.Fprintln(stderr, "converse: --per-turn-timeout must be at most 3600 seconds")
+		return 2
+	}
+	if *overallTimeout > 86400 {
+		fmt.Fprintln(stderr, "converse: --overall-timeout must be at most 86400 seconds (24h)")
+		return 2
+	}
 	if *overallTimeout == 0 {
+		// Guard against overflow: maxTurns*perTurnTimeout can overflow int.
+		if *maxTurns > 0 && *perTurnTimeout > 0 && *perTurnTimeout > math.MaxInt / *maxTurns {
+			fmt.Fprintln(stderr, "converse: --max-turns * --per-turn-timeout would overflow; set --overall-timeout explicitly")
+			return 2
+		}
 		*overallTimeout = *maxTurns * *perTurnTimeout
 	}
 
