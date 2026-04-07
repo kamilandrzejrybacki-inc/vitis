@@ -12,12 +12,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
 )
+
+// maxBufferBytes is the hard cap on the PersistentProcess output buffer.
+// If more than this many bytes accumulate between marker matches, ConverseTurn
+// returns a buffer overflow error so the broker can finalize gracefully.
+const maxBufferBytes = 64 << 20 // 64 MiB
 
 // rawPTYProcess is the narrow view of terminal.PseudoTerminalProcess that
 // PersistentProcess depends on. Defining it locally lets the wrapper be
@@ -135,7 +139,14 @@ func (p *PersistentProcess) ConverseTurn(ctx context.Context, envelopeBytes []by
 			if idx := bytes.Index(tail, markerBytes); idx >= 0 {
 				resp := append([]byte(nil), tail[:idx]...)
 				p.cursor += idx + len(markerBytes)
+				// Compact the buffer: discard consumed bytes so memory is freed.
+				p.buffer = append([]byte(nil), p.buffer[p.cursor:]...)
+				p.cursor = 0
 				return resp, nil
+			}
+			// Hard cap: if the unconsumed buffer exceeds the limit, abort.
+			if len(tail) > maxBufferBytes {
+				return nil, fmt.Errorf("persistent process: buffer overflow (%d bytes) waiting for marker", len(tail))
 			}
 		}
 		if p.exited {
@@ -180,5 +191,3 @@ func (p *PersistentProcess) drainAvailable() []byte {
 	return out
 }
 
-// Compile-time assertion that the wrapper at least uses io.EOF idiom.
-var _ = io.EOF
