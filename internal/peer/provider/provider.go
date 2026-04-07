@@ -9,6 +9,7 @@ import (
 	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/peer"
+	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
 )
 
 // Compile-time assertion that Transport implements peer.PeerTransport.
@@ -81,7 +82,7 @@ func (t *Transport) Deliver(ctx context.Context, env model.Envelope) (model.Conv
 		Index:                env.TurnIndex,
 		From:                 slot,
 		Envelope:             env.Body,
-		Response:             string(resp),
+		Response:             terminal.NormalizePTYText(resp),
 		MarkerToken:          env.MarkerToken,
 		StartedAt:            startedAt,
 		EndedAt:              endedAt,
