@@ -73,12 +73,18 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 		return b.finalize(ctx, conv, nil, warnings, model.ConvError, fmt.Sprintf("peer A start: %v", err))
 	}
 	if err := b.deps.PeerB.Start(ctx, conv.PeerB, b.deps.Bus, conv.ID, model.PeerSlotB); err != nil {
-		_ = b.deps.PeerA.Stop(ctx, time.Second)
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = b.deps.PeerA.Stop(stopCtx, time.Second)
+		stopCancel()
 		return b.finalize(ctx, conv, nil, warnings, model.ConvError, fmt.Sprintf("peer B start: %v", err))
 	}
 	defer func() {
-		_ = b.deps.PeerA.Stop(ctx, time.Second)
-		_ = b.deps.PeerB.Stop(ctx, time.Second)
+		// Use a fresh background context so Stop succeeds even when the run
+		// context has already been cancelled (H3).
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stopCancel()
+		_ = b.deps.PeerA.Stop(stopCtx, time.Second)
+		_ = b.deps.PeerB.Stop(stopCtx, time.Second)
 	}()
 
 	// Start the terminator.
