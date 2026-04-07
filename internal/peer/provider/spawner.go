@@ -13,6 +13,31 @@ import (
 	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
 )
 
+// testAdapterFactories holds test-only adapter factories registered via
+// RegisterTestAdapterFactory (called from init() in *_test.go files).
+// This avoids shipping test adapters (e.g. "mock") in production binaries
+// while still allowing resolveAdapter to find them during test runs.
+var testAdapterFactories = map[string]func(map[string]string) adapter.Adapter{}
+
+// RegisterTestAdapterFactory registers a test-only adapter factory for the
+// given provider id. It is intended to be called from init() functions in
+// _test.go files in any package that needs provider:mock during tests.
+func RegisterTestAdapterFactory(id string, factory func(map[string]string) adapter.Adapter) {
+	testAdapterFactories[id] = factory
+}
+
+// allowedEnvKeys is the set of env var keys that may be forwarded from
+// --peer-*-opt env_KEY=val to the spawned subprocess. Any other key is
+// silently dropped with a stderr warning. This prevents arbitrary env
+// injection (e.g. LD_PRELOAD, CLANK_CLAUDE_ARGS).
+var allowedEnvKeys = map[string]bool{
+	"ANTHROPIC_API_KEY":    true,
+	"OPENAI_API_KEY":       true,
+	"MOCK_RESPONSE":        true,
+	"MOCK_SENTINEL_AT_TURN": true,
+	"MOCK_DELAY_MS":        true,
+}
+
 // NewTerminalSpawner returns a Spawner that resolves the URI scheme of a
 // PeerSpec to a concrete adapter, builds an adapter.SpawnSpec, and starts
 // a real PTY process via terminal.Runtime.
@@ -32,10 +57,15 @@ func NewTerminalSpawner() Spawner {
 			homeDir = os.Getenv("HOME")
 		}
 		env := map[string]string{}
-		// Pass through any explicitly-set provider env vars from options.
+		// Forward only allowlisted env vars from peer options.
 		for k, v := range spec.Options {
 			if strings.HasPrefix(k, "env_") {
-				env[strings.TrimPrefix(k, "env_")] = v
+				key := strings.TrimPrefix(k, "env_")
+				if allowedEnvKeys[key] {
+					env[key] = v
+				} else {
+					fmt.Fprintf(os.Stderr, "clank: dropping disallowed env var %q from peer options\n", key)
+				}
 			}
 		}
 		spawnSpec := ad.BuildSpawnSpec(cwd, env, homeDir, 80, 24, "")
@@ -62,55 +92,11 @@ func resolveAdapter(spec model.PeerSpec) (adapter.Adapter, error) {
 		return claudecode.New(), nil
 	case "codex":
 		return codex.New(), nil
-	case "mock":
-		return newMockAdapter(spec.Options), nil
 	default:
+		// Check test-registered factories (populated via init() in _test.go files).
+		if factory, ok := testAdapterFactories[id]; ok {
+			return factory(spec.Options), nil
+		}
 		return nil, fmt.Errorf("provider transport: unknown provider %q", id)
 	}
-}
-
-// mockProviderAdapter is the test-only adapter that runs the mock-agent
-// binary identified by spec.Options["bin"] (or MOCK_BIN env var). It is
-// declared in this file (not under a build tag) so the integration test
-// can drive it without conditional compilation.
-type mockProviderAdapter struct {
-	bin string
-}
-
-func newMockAdapter(opts map[string]string) adapter.Adapter {
-	bin := opts["bin"]
-	if bin == "" {
-		bin = os.Getenv("MOCK_BIN")
-	}
-	return &mockProviderAdapter{bin: bin}
-}
-
-func (m *mockProviderAdapter) ID() string { return "mock" }
-
-func (m *mockProviderAdapter) BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int, _ string) adapter.SpawnSpec {
-	if env == nil {
-		env = map[string]string{}
-	}
-	env["MOCK_MULTI_TURN"] = "1"
-	if env["MOCK_RESPONSE"] == "" {
-		env["MOCK_RESPONSE"] = "ok"
-	}
-	return adapter.SpawnSpec{
-		Command:      m.bin,
-		Env:          env,
-		Cwd:          cwd,
-		HomeDir:      homeDir,
-		TerminalCols: cols,
-		TerminalRows: rows,
-	}
-}
-
-func (m *mockProviderAdapter) FormatPrompt(raw string) []byte { return []byte(raw + "\n") }
-
-func (m *mockProviderAdapter) Observe(_ adapter.CompletionContext) *adapter.TranscriptObservation {
-	return nil
-}
-
-func (m *mockProviderAdapter) ExtractResponse(_ []byte, _ string) adapter.ExtractionResult {
-	return adapter.ExtractionResult{}
 }
