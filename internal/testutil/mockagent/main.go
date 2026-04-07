@@ -14,6 +14,13 @@ func main() {
 	mode := env("MOCK_MODE", "happy")
 	response := env("MOCK_RESPONSE", "mock response")
 	exitCode, _ := strconv.Atoi(env("MOCK_EXIT_CODE", "0"))
+	multiTurn := env("MOCK_MULTI_TURN", "0") == "1"
+	sentinelAt, _ := strconv.Atoi(env("MOCK_SENTINEL_AT_TURN", "0"))
+
+	if multiTurn {
+		runMultiTurn(delayMs, response, sentinelAt)
+		return
+	}
 
 	reader := bufio.NewReader(os.Stdin)
 	_, _ = reader.ReadString('\n')
@@ -25,11 +32,9 @@ func main() {
 	switch mode {
 	case "blocked":
 		fmt.Fprintln(os.Stdout, "Continue? (y/n)")
-		// Block waiting for input so the orchestrator can detect the idle prompt.
 		_, _ = reader.ReadString('\n')
 	case "auth":
 		fmt.Fprintln(os.Stdout, "Authentication required. Please log in.")
-		// Block waiting for input so the orchestrator can detect the idle prompt.
 		_, _ = reader.ReadString('\n')
 	case "rate_limit":
 		fmt.Fprintln(os.Stdout, "You've hit your session limit")
@@ -47,6 +52,70 @@ func main() {
 	}
 
 	os.Exit(exitCode)
+}
+
+// runMultiTurn implements the multi-turn loop used by A2A integration
+// tests. Each iteration:
+//  1. reads bytes from stdin until a recognised marker-instruction line
+//     ("output the token <T> on its own line.") is observed; this
+//     delimits the end of one envelope.
+//  2. optionally sleeps MOCK_DELAY_MS
+//  3. prints the configured response (with sentinel prepended on the
+//     configured turn)
+//  4. prints the marker token on its own line
+//
+// The loop exits cleanly on stdin EOF.
+func runMultiTurn(delayMs int, response string, sentinelAt int) {
+	reader := bufio.NewReader(os.Stdin)
+	turn := 0
+	for {
+		marker, ok := readEnvelopeMarker(reader)
+		if !ok {
+			return
+		}
+		turn++
+		if delayMs > 0 {
+			time.Sleep(time.Duration(delayMs) * time.Millisecond)
+		}
+		body := response
+		if sentinelAt > 0 && turn == sentinelAt {
+			body = body + "\n<<END>>"
+		}
+		fmt.Fprintf(os.Stdout, "turn %d: %s\n%s\n", turn, body, marker)
+	}
+}
+
+// readEnvelopeMarker reads lines from r until it finds a line of the form
+//
+//	...output the token <TOKEN> on its own line.
+//
+// and returns the extracted token. Returns ("", false) on EOF.
+func readEnvelopeMarker(r *bufio.Reader) (string, bool) {
+	for {
+		line, err := r.ReadString('\n')
+		if line != "" {
+			if tok := extractMarker(line); tok != "" {
+				return tok, true
+			}
+		}
+		if err != nil {
+			return "", false
+		}
+	}
+}
+
+func extractMarker(line string) string {
+	const needle = "output the token "
+	idx := strings.Index(line, needle)
+	if idx < 0 {
+		return ""
+	}
+	rest := line[idx+len(needle):]
+	end := strings.IndexAny(rest, " \r\n")
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
 }
 
 func env(key, fallback string) string {
