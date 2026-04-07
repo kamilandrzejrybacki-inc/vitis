@@ -243,6 +243,9 @@ func (s *Store) writeJSONAtomic(path string, value any) error {
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return fmt.Errorf("write temp file: %w", err)
 	}
+	// Clean up the temp file on rename failure. After a successful rename the
+	// file no longer exists at tmp, so os.Remove is a harmless no-op.
+	defer os.Remove(tmp)
 	if err := os.Rename(tmp, path); err != nil {
 		return fmt.Errorf("rename temp file: %w", err)
 	}
