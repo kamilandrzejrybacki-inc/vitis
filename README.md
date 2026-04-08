@@ -43,6 +43,19 @@ vitis converse \
   --terminator sentinel
 ```
 
+An N-peer (3+) conversation using the repeatable `--peer` flag, with addressed routing via `<<NEXT: peer-id>>` trailers:
+
+```bash
+vitis converse \
+  --peer 'id=alice,provider=claude-code,seed="You are the optimist. Address the next speaker with <<NEXT: id>> or end with <<END>>."' \
+  --peer 'id=bob,provider=codex,seed="You are the pessimist."' \
+  --peer 'id=carol,provider=claude-code,seed="You are the moderator."' \
+  --opener alice \
+  --max-turns 12
+```
+
+Peer ids must match `^[a-z][a-z0-9_-]{0,31}$`. Each peer's reply may end with `<<NEXT: peer-id>>` to address the next speaker explicitly; replies without a trailer fall back to round-robin in declared order. `<<END>>` always terminates the conversation. The legacy `--peer-a/--peer-b` flags continue to work unchanged for 2-peer scripts.
+
 Check the local environment, including which providers are installed and whether the optional rtk hook is active:
 
 ```bash
@@ -62,8 +75,10 @@ vitis doctor --provider claude-code | jq .
 
 | Flag | Default | Notes |
 |---|---|---|
-| `--peer-a`, `--peer-b` | required | Peer URI: `provider:claude-code`, `provider:codex`, `provider:mock` (test builds), `vitis://` (planned), `stdio://` (planned) |
+| `--peer-a`, `--peer-b` | required (legacy 2-peer) | Peer URI: `provider:claude-code`, `provider:codex`, `provider:mock` (test builds), `vitis://` (planned), `stdio://` (planned) |
 | `--peer-a-opt key=value` | repeatable | Per-peer options. Recognised keys include `model`, `reasoning-effort`, `cwd`, `home`, allowlisted `env_KEY=value`. |
+| `--peer id=...,provider=...[,seed="...",...]` | repeatable, N-peer mode | N-peer (2..16) declaration. Mutually exclusive with `--peer-a/--peer-b`. Recognised keys: `id` (required, lowercase regex), `provider` (required), `seed`, `model`, `reasoning-effort`, `cwd`, `home`. Quoted values may contain commas; escapes `\"` and `\\` work. |
+| `--opener <id>` | first declared peer | In N-peer mode, names which peer opens the conversation. |
 | `--seed "..."` | one of seed/seed-a+b required | Same opening prompt for both peers |
 | `--seed-a "..." --seed-b "..."` | alternative | Asymmetric per-peer seeds for debate or role-play |
 | `--opener a\|b` | `a` | Which peer speaks first |
