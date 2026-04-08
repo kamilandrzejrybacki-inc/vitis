@@ -3,3 +3,4 @@ dist/
 bin/
 clank
 tests/manual/.build/
+tests/manual/.portkey.env

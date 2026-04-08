@@ -31,6 +31,15 @@ setup_tmp_logs
 
 header "13_converse_portkey: A2A via portkeyagent → Portkey"
 
+# Source the optional .portkey.env if present (gitignored, machine-local).
+# This is the recommended way to configure the Portkey credentials so the
+# script can be run with no flags.
+if [[ -f "${SCRIPT_DIR}/.portkey.env" ]]; then
+  info "sourcing ${SCRIPT_DIR}/.portkey.env"
+  # shellcheck source=/dev/null
+  source "${SCRIPT_DIR}/.portkey.env"
+fi
+
 # Resolve portkeyagent binary.
 PORTKEYAGENT_BIN="${PORTKEYAGENT_BIN:-$(command -v portkeyagent || true)}"
 if [[ -z "${PORTKEYAGENT_BIN}" ]]; then
@@ -41,7 +50,7 @@ if [[ ! -x "${PORTKEYAGENT_BIN}" ]]; then
 fi
 
 if [[ -z "${PORTKEY_API_KEY:-}" ]]; then
-  skip "PORTKEY_API_KEY not set (export it before running this script)"
+  skip "PORTKEY_API_KEY not set (create tests/manual/.portkey.env or export it manually)"
 fi
 
 CLANK="$(clank_bin)"
@@ -53,15 +62,10 @@ CLANK="$(clank_bin)"
 export CLANK_CLAUDE_BINARY="${PORTKEYAGENT_BIN}"
 export MOCK_MULTI_TURN=1   # signals multi-turn mode to portkeyagent
 
-# Optional system prompts per peer to keep replies short and on-topic for
-# the test scenario. The portkeyagent process inherits env vars from clank,
-# but each peer is its own subprocess so we can't trivially set different
-# system prompts per peer here. For asymmetric personas use --seed-a /
-# --seed-b instead — they end up as the user message on turn 1.
-export PORTKEYAGENT_SYSTEM="You are participating in a brief test conversation. Keep replies under 3 sentences. Always emit the marker token instructed in the incoming message verbatim on its own line at the end."
-
 info "PORTKEY_API_KEY    = ${PORTKEY_API_KEY:0:8}…"
+info "PORTKEY_PROVIDER   = ${PORTKEY_PROVIDER:-<unset>}"
 info "PORTKEY_VIRTUAL_KEY= ${PORTKEY_VIRTUAL_KEY:-<unset>}"
+info "PORTKEY_ENDPOINT   = ${PORTKEY_ENDPOINT:-<default>}"
 info "PORTKEY_MODEL      = ${PORTKEY_MODEL:-<default: gpt-4o-mini>}"
 info "portkeyagent       = ${PORTKEYAGENT_BIN}"
 
@@ -85,22 +89,31 @@ out=$( "${CLANK}" converse \
   }
 
 echo "${out}" | tail -120
-status=$(json_field "${out}" conversation.status)
-turns=$(json_field "${out}" conversation.turns_consumed)
+
+# The stdout is streamed JSONL turns followed by the indented FinalResult
+# JSON object. Don't try to JSON-parse the whole thing — just grep the
+# final status field, which appears in both the streamed turns AND the
+# final result. The conversation.status is at the top of the indented
+# FinalResult and is the most reliable signal.
+status=$(echo "${out}" | grep -oE '"status": "[a-z_]+"' | tail -1 | sed -E 's/.*"([a-z_]+)"/\1/')
 
 case "${status}" in
   completed_sentinel)
-    ok "Portkey-backed conversation terminated via sentinel after ${turns} turns"
+    ok "Portkey-backed conversation terminated via sentinel"
     ;;
   max_turns_hit)
-    warn "conversation hit max-turns (${turns}) — the upstream model may not have followed the sentinel instruction. Inspect the streamed turns above to verify it understood the prompt."
+    warn "conversation hit max-turns — the upstream model may not have followed the sentinel instruction. Inspect the streamed turns above to verify it understood the prompt."
     ;;
   peer_crashed|error)
     fail "conversation failed with status=${status}"
+    ;;
+  "")
+    fail "could not parse status from output"
     ;;
   *)
     warn "unexpected status=${status}"
     ;;
 esac
 
-verify "human review: scroll up and confirm the streamed turns show real model-generated content (not echoed envelopes, not empty replies, not error messages)"
+verify "human review: scroll up and confirm the streamed turns show real model-generated content (not just echoed envelopes, not empty replies, not error messages)"
+verify "known limitation: the captured 'response' field includes the PTY echo of the envelope as a prefix. The actual model reply is at the end. Sentinel + marker matching still work because both are line-anchored."
