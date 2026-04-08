@@ -65,6 +65,12 @@ type Conversation struct {
 	SeedB          string             `json:"seed_b"`
 	Opener         PeerSlot           `json:"opener"`
 	TurnsConsumed  int                `json:"turns_consumed"`
+	// ReplyStyle controls how peers should format their replies (normal,
+	// caveman-lite, caveman-full, caveman-ultra). Empty string is treated
+	// as "normal". The conversation/style.go package owns the canonical
+	// value set; this field is a string here to keep model/ free of any
+	// dependency on internal/conversation.
+	ReplyStyle string `json:"reply_style,omitempty"`
 }
 
 // PerTurnTimeoutDuration returns PerTurnTimeout as a time.Duration.

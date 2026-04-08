@@ -15,6 +15,7 @@ func BuildEnvelopeTurn1(conv model.Conversation, slot model.PeerSlot, marker str
 		Slot:       slot,
 		MaxTurns:   conv.MaxTurns,
 		Terminator: conv.Terminator,
+		Style:      ReplyStyle(conv.ReplyStyle),
 	})
 	seed := seedFor(conv, slot)
 	seedBody := renderBody(conv.ID, 1, conv.MaxTurns, "seed", seed, marker)

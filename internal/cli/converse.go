@@ -79,6 +79,7 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 		logPath        = fs.String("log-path", "./logs", "file backend log root")
 		workingDir     = fs.String("working-directory", "", "working directory for spawned peers")
 		streamTurns    = fs.Bool("stream-turns", true, "stream each turn as JSONL on stdout during the run")
+		replyStyle     = fs.String("style", "normal", "reply style: normal | caveman-lite | caveman-full | caveman-ultra (caveman variants embed JuliusBrussee/caveman style instructions into the per-peer briefing for ~75% reply-token compression)")
 	)
 	peerAOpts := newRepeatableFlag()
 	peerBOpts := newRepeatableFlag()
@@ -120,6 +121,10 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 	}
 	if *logBackend != "file" {
 		fmt.Fprintf(stderr, "converse: log-backend %q not supported in this build (file only)\n", *logBackend)
+		return 2
+	}
+	if !conversation.IsValidStyle(*replyStyle) {
+		fmt.Fprintf(stderr, "converse: --style %q is not valid (use normal, caveman-lite, caveman-full, or caveman-ultra)\n", *replyStyle)
 		return 2
 	}
 	if *perTurnTimeout < 1 {
@@ -169,6 +174,7 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 		SeedA:          converseFirstNonEmpty(*seedA, *seed),
 		SeedB:          converseFirstNonEmpty(*seedB, *seed),
 		Opener:         model.PeerSlot(*opener),
+		ReplyStyle:     *replyStyle,
 	}
 
 	store, err := filestore.New(*logPath, false)

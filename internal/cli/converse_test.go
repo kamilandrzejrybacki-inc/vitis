@@ -70,6 +70,40 @@ func TestConverseEnforcesMaxTurnsBounds(t *testing.T) {
 	}
 }
 
+func TestConverseRejectsInvalidStyle(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := ConverseCommand(context.Background(), []string{
+		"--peer-a", "provider:mock",
+		"--peer-b", "provider:mock",
+		"--seed", "x",
+		"--style", "shouty",
+	}, &stdout, &stderr)
+	require.Equal(t, 2, code)
+	require.Contains(t, stderr.String(), "style")
+}
+
+func TestConverseAcceptsValidStyles(t *testing.T) {
+	// Use --max-turns 0 (rejected) so the command exits at validation
+	// BEFORE spawning anything. We only care that the --style flag
+	// itself is accepted, not that the conversation runs.
+	for _, style := range []string{"normal", "caveman-lite", "caveman-full", "caveman-ultra"} {
+		t.Run(style, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := ConverseCommand(context.Background(), []string{
+				"--peer-a", "provider:mock",
+				"--peer-b", "provider:mock",
+				"--seed", "x",
+				"--max-turns", "0",
+				"--style", style,
+			}, &stdout, &stderr)
+			require.Equal(t, 2, code)
+			// Rejection must be on max-turns, not on style.
+			require.Contains(t, stderr.String(), "max-turns")
+			require.NotContains(t, stderr.String(), "--style")
+		})
+	}
+}
+
 // E2E test (real subprocesses) lives in converse_e2e_test.go.
 
 // helper for shape assertion of FinalResult JSON shape

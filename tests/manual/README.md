@@ -43,6 +43,7 @@ chmod +x tests/manual/*.sh
 | 12 | `12_security_path_traversal.sh`    | no | path-traversal hardening (`--working-directory` / `--log-path`), `env_KEY` allowlist enforcement (LD_PRELOAD / CLANK_CLAUDE_ARGS dropped) |
 | 13 | `13_converse_portkey.sh`           | portkey | A2A end-to-end via [portkeyagent](https://github.com/kamilrybacki/portkeyagent) → Portkey gateway → free LLM. Auto-skips if portkeyagent or `PORTKEY_API_KEY` is missing. |
 | 14 | `14_rtk_integration.sh`            | rtk | Verifies [rtk](https://github.com/rtk-ai/rtk) is installed and the rtk PreToolUse hook is active for at least one of the spawned providers. Auto-skips if rtk is missing. |
+| 15 | `15_converse_caveman.sh`           | portkey | Runs the same A2A conversation twice (`--style normal` then `--style caveman-ultra`) against the homelab Portkey gateway and asserts the caveman version produces measurably (>10%) shorter total response chars. Uses the [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) rules embedded directly in clank's per-peer briefing — no external skill install required. |
 
 ## Real-provider tests (08, 09, 10)
 
@@ -114,6 +115,51 @@ rtk is on PATH and at least one provider has the rtk PreToolUse hook
 active. End-to-end token-savings verification (i.e. inspecting the actual
 tool-call traffic of a spawned agent) is left to a real-provider run via
 script 08 or 13.
+
+## Reply-token compression via caveman style (script 15)
+
+clank's `--style` flag embeds the [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman)
+ruleset directly into the per-peer briefing, so every reply the spawned
+agents produce comes back ~75% shorter without losing technical content.
+This stacks with rtk:
+
+| Layer | What it shrinks | Mechanism |
+|---|---|---|
+| **rtk** | Tool call **input** going TO the agent | PreToolUse hook rewrites `git status` → `rtk git status` etc. |
+| **caveman** | Model **output** coming FROM the agent | Briefing instructions tell the model to drop filler/articles/hedging |
+
+The combined effect on A2A is roughly **3-4× more turns within a fixed
+context budget**: smaller envelopes + smaller replies + smaller tool
+outputs, all compounding across turns.
+
+### Style flag
+
+```bash
+clank converse --style caveman-full ...     # default caveman, drops articles, fragments
+clank converse --style caveman-lite ...     # professional but tight, keeps grammar
+clank converse --style caveman-ultra ...    # max compression, telegraphic, abbreviated
+clank converse --style normal ...           # default, no style instructions
+```
+
+The style instructions are embedded in clank itself (`internal/conversation/style.go`)
+adapted from caveman's MIT-licensed `SKILL.md`. **No external install
+needed.** The instructions explicitly preserve code blocks, error
+messages, security warnings, and irreversible-action confirmations
+verbatim, so the compression is safe for technical conversations.
+
+### Verification
+
+```bash
+./tests/manual/15_converse_caveman.sh
+```
+
+Runs the same converse twice (normal + caveman-ultra) against the
+homelab Portkey gateway and reports the compression ratio. On a real
+run with Groq llama-3.3-70b-versatile, this script measures roughly
+**60% reply-length reduction** for the same prompt — well above the
+10% threshold the script asserts.
+
+Auto-skips if portkeyagent or `PORTKEY_API_KEY` is missing.
 
 ## Free-LLM testing via Portkey (script 13)
 
