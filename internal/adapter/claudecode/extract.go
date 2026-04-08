@@ -68,7 +68,11 @@ func cleanBlock(block string) string {
 		if trimmed == "" {
 			continue
 		}
-		if strings.HasPrefix(trimmed, ">") || strings.HasPrefix(trimmed, "›") {
+		// Strip Claude Code's TUI prompt glyphs: ">" (ASCII fallback),
+		// "›" (U+203A, single right-pointing angle quotation mark), and
+		// "❯" (U+276F, heavy right-pointing angle quotation mark ornament
+		// — the default ready-prompt glyph emitted by the PTY runtime).
+		if strings.HasPrefix(trimmed, ">") || strings.HasPrefix(trimmed, "›") || strings.HasPrefix(trimmed, "❯") {
 			continue
 		}
 		out = append(out, line)
