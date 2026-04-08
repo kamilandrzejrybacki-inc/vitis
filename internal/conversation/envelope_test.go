@@ -74,3 +74,28 @@ func TestEnvelopeBodyEndsWithMarkerInstruction(t *testing.T) {
 	require.True(t, strings.HasSuffix(strings.TrimSpace(env.Body),
 		"When you finish your reply, output the token TURN_END_xxxxxxxxxxxx on its own line."))
 }
+
+// P1-2 regression: the envelope body must end with a newline so that
+// line-buffered peer stdin readers (mock-agent's bufio.ReadString('\n'))
+// actually receive the final marker-instruction line.
+func TestEnvelopeBodyEndsWithNewline(t *testing.T) {
+	conv := model.Conversation{
+		ID:         "conv-1",
+		MaxTurns:   10,
+		Terminator: model.TerminatorSpec{Kind: "sentinel", Sentinel: "<<END>>"},
+		SeedA:      "hi",
+		SeedB:      "hi",
+	}
+	env1 := BuildEnvelopeTurn1(conv, model.PeerSlotA, "TURN_END_aaaaaaaaaaaa")
+	require.True(t, strings.HasSuffix(env1.Body, "\n"), "turn-1 body must end with newline; got %q", env1.Body[len(env1.Body)-min(40, len(env1.Body)):])
+
+	envN := BuildEnvelopeTurnN(conv, 2, model.PeerSlotA, "previous", "TURN_END_bbbbbbbbbbbb")
+	require.True(t, strings.HasSuffix(envN.Body, "\n"), "turn-N body must end with newline; got %q", envN.Body[len(envN.Body)-min(40, len(envN.Body)):])
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

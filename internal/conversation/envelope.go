@@ -66,6 +66,9 @@ func renderBody(conversationID string, turnIndex, maxTurns int, fromLabel, conte
 		b.WriteString("\n")
 	}
 	b.WriteString("\n")
-	fmt.Fprintf(&b, "When you finish your reply, output the token %s on its own line.", marker)
+	// The trailing newline is REQUIRED: line-buffered peer stdin readers
+	// (mock-agent's bufio.ReadString('\n'), interactive Claude/Codex sessions)
+	// won't see the marker-instruction line until it is terminated.
+	fmt.Fprintf(&b, "When you finish your reply, output the token %s on its own line.\n", marker)
 	return b.String()
 }
