@@ -1,0 +1,9 @@
+\x1b[?25l\x1b[32mClaude Code v1.2.3\x1b[0m
+
+\x1b[36mClaude\x1b[0m \x1b[90m(claude-opus-4-5)\x1b[0m
+
+I was working on your request, but unfortunately:
+
+\x1b[31mRate limit reached.\x1b[0m You've hit your usage limit for this session.
+
+Please wait before retrying or upgrade your plan.

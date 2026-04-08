@@ -2,12 +2,11 @@ package postgres
 
 import (
 	"context"
-	"encoding/base64"
+	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 type Store struct {
@@ -73,8 +72,8 @@ func New(ctx context.Context, databaseURL string) (*Store, error) {
 	return &Store{pool: pool}, nil
 }
 
-func (s *Store) CreateSession(session model.Session) error {
-	_, err := s.pool.Exec(context.Background(), `
+func (s *Store) CreateSession(ctx context.Context, session model.Session) error {
+	_, err := s.pool.Exec(ctx, `
 INSERT INTO sessions (
     session_id, provider, status, started_at, ended_at, duration_ms, exit_code,
     parser_confidence, observation_confidence, auth_mode, blocked_reason, bytes_captured,
@@ -88,7 +87,7 @@ INSERT INTO sessions (
 	return err
 }
 
-func (s *Store) UpdateSession(sessionID string, patch model.SessionPatch) error {
+func (s *Store) UpdateSession(ctx context.Context, sessionID string, patch model.SessionPatch) error {
 	query := `
 UPDATE sessions SET
     status = COALESCE($2, status),
@@ -110,7 +109,7 @@ WHERE session_id = $1
 		value := string(*patch.Status)
 		status = &value
 	}
-	_, err := s.pool.Exec(context.Background(), query,
+	_, err := s.pool.Exec(ctx, query,
 		sessionID, status, patch.EndedAt, patch.DurationMs, patch.ExitCode,
 		patch.ParserConfidence, patch.ObservationConfidence, patch.AuthMode, patch.BlockedReason,
 		patch.BytesCaptured, patch.Warnings, patch.TerminalCols, patch.TerminalRows,
@@ -118,19 +117,19 @@ WHERE session_id = $1
 	return err
 }
 
-func (s *Store) AppendTurn(turn model.Turn) error {
-	_, err := s.pool.Exec(context.Background(),
+func (s *Store) AppendTurn(ctx context.Context, turn model.Turn) error {
+	_, err := s.pool.Exec(ctx,
 		`INSERT INTO turns (session_id, turn_index, role, content, created_at) VALUES ($1,$2,$3,$4,$5)`,
 		turn.SessionID, turn.Index, turn.Role, turn.Content, turn.CreatedAt,
 	)
 	return err
 }
 
-func (s *Store) PeekTurns(sessionID string, lastN int) ([]model.Turn, error) {
+func (s *Store) PeekTurns(ctx context.Context, sessionID string, lastN int) ([]model.Turn, error) {
 	if lastN <= 0 {
 		lastN = 10
 	}
-	rows, err := s.pool.Query(context.Background(),
+	rows, err := s.pool.Query(ctx,
 		`SELECT session_id, turn_index, role, content, created_at
 		 FROM turns WHERE session_id=$1 ORDER BY turn_index DESC LIMIT $2`,
 		sessionID, lastN,
@@ -154,11 +153,11 @@ func (s *Store) PeekTurns(sessionID string, lastN int) ([]model.Turn, error) {
 	return turns, rows.Err()
 }
 
-func (s *Store) AppendStreamEvent(event model.StoredStreamEvent) error {
-	_, err := s.pool.Exec(context.Background(),
+func (s *Store) AppendStreamEvent(ctx context.Context, event model.StoredStreamEvent) error {
+	_, err := s.pool.Exec(ctx,
 		`INSERT INTO stream_events (session_id, timestamp, kind, chunk_raw, chunk_text, chunk_encoding)
 		 VALUES ($1,$2,$3,$4,$5,$6)`,
-		event.SessionID, event.Timestamp, string(event.Kind), event.Data, base64.StdEncoding.EncodeToString(event.Data), "raw",
+		event.SessionID, event.Timestamp, string(event.Kind), event.Data, string(event.Data), "raw",
 	)
 	return err
 }
@@ -168,4 +167,18 @@ func (s *Store) Close() error {
 	return nil
 }
 
-func _timePtr(t time.Time) *time.Time { return &t }
+func (s *Store) CreateConversation(ctx context.Context, conv model.Conversation) error {
+	return errors.New("postgres backend: CreateConversation not implemented in M1 (plan 3 adds it)")
+}
+
+func (s *Store) UpdateConversation(ctx context.Context, conversationID string, patch model.ConversationPatch) error {
+	return errors.New("postgres backend: UpdateConversation not implemented in M1 (plan 3 adds it)")
+}
+
+func (s *Store) AppendConversationTurn(ctx context.Context, turn model.ConversationTurn) error {
+	return errors.New("postgres backend: AppendConversationTurn not implemented in M1 (plan 3 adds it)")
+}
+
+func (s *Store) PeekConversationTurns(ctx context.Context, conversationID string, lastN int) ([]model.ConversationTurn, error) {
+	return nil, errors.New("postgres backend: PeekConversationTurns not implemented in M1 (plan 3 adds it)")
+}

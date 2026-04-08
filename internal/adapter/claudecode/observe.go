@@ -4,13 +4,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func (a *Adapter) Observe(context adapter.CompletionContext) *adapter.TranscriptObservation {
 	tail := strings.TrimSpace(context.NormalizedTail)
-	lowerTail := strings.ToLower(tail)
 
 	if context.BytesSeen == 0 && context.ExitCode != nil {
 		return &adapter.TranscriptObservation{
@@ -50,10 +49,10 @@ func (a *Adapter) Observe(context adapter.CompletionContext) *adapter.Transcript
 				Evidence:   []string{"rate_limit"},
 			}
 		}
-		if matchAny(permissionPatterns, tail) && strings.Contains(lowerTail, "?") {
+		if matchAny(permissionPatterns, tail) {
 			return &adapter.TranscriptObservation{
 				Status:     model.RunPermissionPrompt,
-				Terminal:   true,
+				Terminal:   false,
 				Confidence: 0.7,
 				Reason:     "permission prompt detected",
 				Evidence:   []string{"permission_prompt"},
@@ -90,16 +89,9 @@ func (a *Adapter) Observe(context adapter.CompletionContext) *adapter.Transcript
 		}
 	}
 
-	if context.BytesSeen > 0 && context.IdleMs >= 5000 {
-		return &adapter.TranscriptObservation{
-			Status:     model.RunCompleted,
-			Terminal:   true,
-			Confidence: 0.35,
-			Reason:     "idle fallback",
-			Evidence:   []string{"idle_fallback"},
-		}
-	}
-
+	// No idle fallback for Claude Code. In PTY mode, Claude Code can pause
+	// indefinitely for thinking or permission prompts. Rely on process exit
+	// and heuristic pattern detection instead.
 	return nil
 }
 

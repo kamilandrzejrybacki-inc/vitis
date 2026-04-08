@@ -1,6 +1,6 @@
 package adapter
 
-import "github.com/kamilandrzejrybacki-inc/clank/internal/model"
+import "github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 
 type SpawnSpec struct {
 	Command      string
@@ -10,6 +10,7 @@ type SpawnSpec struct {
 	HomeDir      string
 	TerminalCols int
 	TerminalRows int
+	PromptInArgs bool // if true, prompt is baked into Args; skip stdin write
 }
 
 type TranscriptObservation struct {
@@ -38,7 +39,7 @@ type CompletionContext struct {
 
 type Adapter interface {
 	ID() string
-	BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int) SpawnSpec
+	BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int, prompt string) SpawnSpec
 	FormatPrompt(raw string) []byte
 	Observe(context CompletionContext) *TranscriptObservation
 	ExtractResponse(rawTranscript []byte, normalizedTranscript string) ExtractionResult

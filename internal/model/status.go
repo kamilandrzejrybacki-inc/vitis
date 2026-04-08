@@ -1,6 +1,6 @@
 package model
 
-// RunStatus describes the externally visible state of a Clank run.
+// RunStatus describes the externally visible state of a Vitis run.
 type RunStatus string
 
 const (

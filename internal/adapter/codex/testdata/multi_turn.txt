@@ -1,0 +1,22 @@
+OpenAI Codex v0.1.2025060501 (research preview)
+--------
+workdir: /home/user/project
+model: o4-mini
+provider: openai
+--------
+user
+List the files in this directory
+
+exec
+ls -la in /home/user/project
+ succeeded:
+total 8
+drwxr-xr-x 2 user user 4096 Apr  6 12:00 .
+drwxr-xr-x 3 user user 4096 Apr  6 12:00 ..
+-rw-r--r-- 1 user user    0 Apr  6 12:00 README.md
+
+codex
+The directory contains one file: README.md
+
+tokens used
+156

@@ -1,0 +1,161 @@
+package terminator
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus/inproc"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+)
+
+func TestSentinelDetectsAndPublishesVerdict(t *testing.T) {
+	b := inproc.New()
+	defer b.Close()
+	conv := model.Conversation{
+		ID:         "conv-1",
+		Terminator: model.TerminatorSpec{Kind: "sentinel", Sentinel: "<<END>>"},
+	}
+	term := NewSentinel("<<END>>")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	require.NoError(t, term.Start(ctx, conv, b))
+	defer term.Stop(context.Background())
+
+	ctlSub, ctlCancel, err := b.Subscribe(ctx, bus.TopicControl(conv.ID))
+	require.NoError(t, err)
+	defer ctlCancel()
+
+	turn := model.ConversationTurn{
+		ConversationID: conv.ID,
+		Index:          2,
+		Response:       "I think we're done here.\n<<END>>",
+	}
+	payload, _ := json.Marshal(turn)
+	require.NoError(t, b.Publish(ctx, bus.TopicTurn(conv.ID), bus.BusMessage{
+		ConversationID: conv.ID,
+		Topic:          bus.TopicTurn(conv.ID),
+		Kind:           bus.KindTurn,
+		Payload:        payload,
+		Timestamp:      time.Now(),
+	}))
+
+	select {
+	case msg := <-ctlSub:
+		require.Equal(t, bus.KindControl, msg.Kind)
+		var ctl bus.ControlMsg
+		require.NoError(t, json.Unmarshal(msg.Payload, &ctl))
+		require.Equal(t, bus.ControlVerdict, ctl.Kind)
+		require.NotNil(t, ctl.Verdict)
+		require.Equal(t, model.DecisionTerminate, ctl.Verdict.Decision)
+		require.Equal(t, model.ConvCompletedSentinel, ctl.Verdict.Status)
+	case <-time.After(time.Second):
+		t.Fatal("expected verdict on control topic")
+	}
+}
+
+func TestSentinelIgnoresAbsentSentinel(t *testing.T) {
+	b := inproc.New()
+	defer b.Close()
+	conv := model.Conversation{ID: "conv-1"}
+	term := NewSentinel("<<END>>")
+	ctx := context.Background()
+	require.NoError(t, term.Start(ctx, conv, b))
+	defer term.Stop(context.Background())
+
+	ctlSub, ctlCancel, err := b.Subscribe(ctx, bus.TopicControl(conv.ID))
+	require.NoError(t, err)
+	defer ctlCancel()
+
+	payload, _ := json.Marshal(model.ConversationTurn{Response: "still going"})
+	require.NoError(t, b.Publish(ctx, bus.TopicTurn(conv.ID), bus.BusMessage{
+		ConversationID: conv.ID,
+		Topic:          bus.TopicTurn(conv.ID),
+		Kind:           bus.KindTurn,
+		Payload:        payload,
+	}))
+
+	select {
+	case <-ctlSub:
+		t.Fatal("should not have published a verdict")
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestSentinelStripFromResponse(t *testing.T) {
+	// Sentinel on its own line is stripped.
+	require.Equal(t, "I'm done.", StripSentinel("I'm done.\n<<END>>", "<<END>>"))
+	// No sentinel → unchanged.
+	require.Equal(t, "still talking", StripSentinel("still talking", "<<END>>"))
+	// Mid-line sentinel is NOT stripped (line-anchored).
+	require.Equal(t, "before<<END>>after", StripSentinel("before<<END>>after", "<<END>>"))
+}
+
+// P2-2 regression: sentinel match must ignore both leading AND trailing
+// whitespace on the line. Previously TrimRight only stripped suffixes, so
+// "  <<END>>" or "\t<<END>>" silently failed to terminate.
+func TestSentinelMatchIgnoresLeadingWhitespace(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"plain", "<<END>>", true},
+		{"leading spaces", "  <<END>>", true},
+		{"leading tab", "\t<<END>>", true},
+		{"trailing spaces", "<<END>>   ", true},
+		{"both", "  <<END>>  ", true},
+		{"in line with prefix", "before\n  <<END>>", true},
+		{"trailing CR", "<<END>>\r", true},
+		{"mid line", "x <<END>> y", false},
+		{"absent", "no token here", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, containsOnOwnLine(tc.body, "<<END>>"))
+		})
+	}
+}
+
+// P2-2 regression: StripSentinel must also ignore leading whitespace.
+func TestStripSentinelIgnoresLeadingWhitespace(t *testing.T) {
+	require.Equal(t, "I'm done.", StripSentinel("I'm done.\n  <<END>>", "<<END>>"))
+	require.Equal(t, "I'm done.", StripSentinel("I'm done.\n\t<<END>>", "<<END>>"))
+	require.Equal(t, "I'm done.", StripSentinel("I'm done.\n  <<END>>  ", "<<END>>"))
+}
+
+func TestSentinelMidLineDoesNotFire(t *testing.T) {
+	b := inproc.New()
+	defer b.Close()
+	conv := model.Conversation{ID: "conv-midline"}
+	term := NewSentinel("<<END>>")
+	ctx := context.Background()
+	require.NoError(t, term.Start(ctx, conv, b))
+	defer term.Stop(context.Background())
+
+	ctlSub, ctlCancel, err := b.Subscribe(ctx, bus.TopicControl(conv.ID))
+	require.NoError(t, err)
+	defer ctlCancel()
+
+	// The sentinel appears mid-line — should NOT trigger termination.
+	payload, _ := json.Marshal(model.ConversationTurn{
+		Response: "I said <<END>> is a good idea but I'm not done yet.",
+	})
+	require.NoError(t, b.Publish(ctx, bus.TopicTurn(conv.ID), bus.BusMessage{
+		ConversationID: conv.ID,
+		Topic:          bus.TopicTurn(conv.ID),
+		Kind:           bus.KindTurn,
+		Payload:        payload,
+	}))
+
+	select {
+	case <-ctlSub:
+		t.Fatal("mid-line sentinel must not trigger termination")
+	case <-time.After(100 * time.Millisecond):
+	}
+}

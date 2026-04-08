@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 type process struct {
@@ -94,6 +94,9 @@ func (p *process) readOutput() {
 
 func (p *process) wait() {
 	err := p.cmd.Wait()
+	// close ptmx first → causes readOutput to get EOF and exit cleanly
+	_ = p.ptmx.Close()
+
 	result := model.ExitResult{Code: 0}
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -105,7 +108,6 @@ func (p *process) wait() {
 	}
 	p.doneCh <- result
 	close(p.doneCh)
-	_ = p.ptmx.Close()
 }
 
 func (p *process) closeOutput() {

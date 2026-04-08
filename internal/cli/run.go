@@ -7,13 +7,15 @@ import (
 	"io"
 	"os"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/orchestrator"
-	filestore "github.com/kamilandrzejrybacki-inc/clank/internal/store/file"
-	pgstore "github.com/kamilandrzejrybacki-inc/clank/internal/store/postgres"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/codex"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/orchestrator"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/store"
+	filestore "github.com/kamilandrzejrybacki-inc/vitis/internal/store/file"
+	pgstore "github.com/kamilandrzejrybacki-inc/vitis/internal/store/postgres"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminal"
 )
 
 func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -35,24 +37,34 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fs.IntVar(&req.TerminalCols, "terminal-cols", 80, "terminal columns")
 	fs.IntVar(&req.TerminalRows, "terminal-rows", 24, "terminal rows")
 	fs.StringVar(&req.HomeDir, "home-dir", "", "home directory override")
+	fs.StringVar(&req.Model, "model", "", "model name (passed to provider)")
+	fs.StringVar(&req.ReasoningEffort, "reasoning-effort", "", "reasoning effort level (provider-specific)")
 
 	if err := fs.Parse(args); err != nil {
-		_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error()))
+		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error())); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
+		}
 		return 2
 	}
 
 	if req.LogBackend != "file" && req.LogBackend != "db" {
-		_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, "log-backend must be file or db"))
+		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, "log-backend must be file or db")); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
+		}
 		return 2
 	}
 	if req.LogBackend == "db" && req.DatabaseURL == "" {
-		_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, "database-url is required when log-backend=db"))
+		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, "database-url is required when log-backend=db")); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
+		}
 		return 2
 	}
 
-	store, err := buildStore(ctx, req)
+	store, err := buildStore(ctx, req.LogBackend, req.LogPath, req.DatabaseURL, req.DebugRaw)
 	if err != nil {
-		_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error()))
+		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error())); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
+		}
 		return 2
 	}
 	defer store.Close()
@@ -64,7 +76,7 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	}
 
 	deps := orchestrator.Dependencies{
-		Adapters: adapter.NewRegistry(claudecode.New()),
+		Adapters: adapter.NewRegistry(claudecode.New(), codex.New()),
 		Runtime:  terminal.NewRuntime(),
 		Store:    store,
 	}
@@ -75,7 +87,9 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		if !ok {
 			runErr = &model.RunError{Code: model.ErrorInternal, Message: err.Error()}
 		}
-		_ = WriteJSON(stdout, ErrorResult(runErr.Code, runErr.Message))
+		if writeErr := WriteJSON(stdout, ErrorResult(runErr.Code, runErr.Message)); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
+		}
 		return 1
 	}
 
@@ -89,16 +103,9 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	return 0
 }
 
-func buildStore(ctx context.Context, req model.RunRequest) (interface {
-	Close() error
-	CreateSession(model.Session) error
-	UpdateSession(string, model.SessionPatch) error
-	AppendTurn(model.Turn) error
-	PeekTurns(string, int) ([]model.Turn, error)
-	AppendStreamEvent(model.StoredStreamEvent) error
-}, error) {
-	if req.LogBackend == "db" {
-		return pgstore.New(ctx, req.DatabaseURL)
+func buildStore(ctx context.Context, backend, logPath, dbURL string, debugRaw bool) (store.Store, error) {
+	if backend == "db" {
+		return pgstore.New(ctx, dbURL)
 	}
-	return filestore.New(req.LogPath, req.DebugRaw)
+	return filestore.New(logPath, debugRaw)
 }

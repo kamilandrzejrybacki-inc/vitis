@@ -1,0 +1,9 @@
+\x1b[?25l\x1b[32mClaude Code v1.2.3\x1b[0m
+
+\x1b[31mAuthentication required.\x1b[0m
+
+You are not logged in. Please log in to continue.
+
+Run: \x1b[1mclaude auth login\x1b[0m
+
+Waiting for authentication...

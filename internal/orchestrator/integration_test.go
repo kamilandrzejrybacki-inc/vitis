@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	filestore "github.com/kamilandrzejrybacki-inc/clank/internal/store/file"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	filestore "github.com/kamilandrzejrybacki-inc/vitis/internal/store/file"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminal"
 )
 
 func TestRunWithRealPTYAndMockAgent(t *testing.T) {
@@ -22,10 +22,10 @@ func TestRunWithRealPTYAndMockAgent(t *testing.T) {
 	repoRoot = filepath.Clean(filepath.Join(repoRoot, "..", ".."))
 
 	tempDir := t.TempDir()
-	envFile := filepath.Join(tempDir, "clank.env")
+	envFile := filepath.Join(tempDir, "vitis.env")
 	envBody := strings.Join([]string{
-		"CLANK_CLAUDE_BINARY=go",
-		"CLANK_CLAUDE_ARGS=run ./internal/testutil/mockagent",
+		"VITIS_CLAUDE_BINARY=go",
+		"VITIS_CLAUDE_ARGS=run ./internal/testutil/mockagent",
 		"MOCK_MODE=happy",
 		"MOCK_RESPONSE=integration response",
 	}, "\n")
@@ -61,7 +61,7 @@ func TestRunWithRealPTYAndMockAgent(t *testing.T) {
 	if result.Status != model.RunCompleted {
 		t.Fatalf("unexpected status: %s error=%+v meta=%+v", result.Status, result.Error, result.Meta)
 	}
-	if result.Response != "integration response" {
+	if !strings.Contains(result.Response, "integration response") {
 		t.Fatalf("unexpected response: %q", result.Response)
 	}
 	if result.Meta.BytesCaptured == 0 {

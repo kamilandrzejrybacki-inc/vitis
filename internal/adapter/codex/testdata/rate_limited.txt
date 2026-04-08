@@ -1,0 +1,2 @@
+OpenAI Codex v0.1.2025060501 (research preview)
+ERROR: Rate limit exceeded. Too many requests, please try again later.

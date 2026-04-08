@@ -2,20 +2,23 @@ package file
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 type Store struct {
 	root     string
 	debugRaw bool
+	mu       sync.Mutex
 }
 
 func New(root string, debugRaw bool) (*Store, error) {
@@ -24,18 +27,22 @@ func New(root string, debugRaw bool) (*Store, error) {
 	}
 	s := &Store{root: root, debugRaw: debugRaw}
 	for _, dir := range []string{s.sessionsDir(), s.turnsDir(), s.rawDir()} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("mkdir %s: %w", dir, err)
 		}
 	}
 	return s, nil
 }
 
-func (s *Store) CreateSession(session model.Session) error {
+func (s *Store) CreateSession(_ context.Context, session model.Session) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.writeJSONAtomic(s.sessionPath(session.ID), session)
 }
 
-func (s *Store) UpdateSession(sessionID string, patch model.SessionPatch) error {
+func (s *Store) UpdateSession(_ context.Context, sessionID string, patch model.SessionPatch) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var session model.Session
 	if err := s.readJSON(s.sessionPath(sessionID), &session); err != nil {
 		return err
@@ -81,11 +88,15 @@ func (s *Store) UpdateSession(sessionID string, patch model.SessionPatch) error 
 	return s.writeJSONAtomic(s.sessionPath(sessionID), session)
 }
 
-func (s *Store) AppendTurn(turn model.Turn) error {
+func (s *Store) AppendTurn(_ context.Context, turn model.Turn) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.appendJSONL(s.turnPath(turn.SessionID), turn)
 }
 
-func (s *Store) PeekTurns(sessionID string, lastN int) ([]model.Turn, error) {
+func (s *Store) PeekTurns(_ context.Context, sessionID string, lastN int) ([]model.Turn, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	file, err := os.Open(s.turnPath(sessionID))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -115,7 +126,9 @@ func (s *Store) PeekTurns(sessionID string, lastN int) ([]model.Turn, error) {
 	return turns, nil
 }
 
-func (s *Store) AppendStreamEvent(event model.StoredStreamEvent) error {
+func (s *Store) AppendStreamEvent(_ context.Context, event model.StoredStreamEvent) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if !s.debugRaw {
 		return nil
 	}
@@ -135,6 +148,85 @@ func (s *Store) AppendStreamEvent(event model.StoredStreamEvent) error {
 
 func (s *Store) Close() error { return nil }
 
+// --- Conversation persistence (A2A) ---
+
+func (s *Store) CreateConversation(_ context.Context, conv model.Conversation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.MkdirAll(s.conversationsDir(), 0o700); err != nil {
+		return fmt.Errorf("mkdir conversations: %w", err)
+	}
+	return s.writeJSONAtomic(s.conversationPath(conv.ID), conv)
+}
+
+func (s *Store) UpdateConversation(_ context.Context, conversationID string, patch model.ConversationPatch) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var conv model.Conversation
+	if err := s.readJSON(s.conversationPath(conversationID), &conv); err != nil {
+		return err
+	}
+	if patch.Status != nil {
+		conv.Status = *patch.Status
+	}
+	if patch.EndedAt != nil {
+		conv.EndedAt = patch.EndedAt
+	}
+	if patch.TurnsConsumed != nil {
+		conv.TurnsConsumed = *patch.TurnsConsumed
+	}
+	return s.writeJSONAtomic(s.conversationPath(conversationID), conv)
+}
+
+func (s *Store) AppendConversationTurn(_ context.Context, turn model.ConversationTurn) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.MkdirAll(s.conversationsDir(), 0o700); err != nil {
+		return fmt.Errorf("mkdir conversations: %w", err)
+	}
+	return s.appendJSONL(s.conversationTurnPath(turn.ConversationID), turn)
+}
+
+func (s *Store) PeekConversationTurns(_ context.Context, conversationID string, lastN int) ([]model.ConversationTurn, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	file, err := os.Open(s.conversationTurnPath(conversationID))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("open conversation turns: %w", err)
+	}
+	defer file.Close()
+
+	var turns []model.ConversationTurn
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		var turn model.ConversationTurn
+		if err := json.Unmarshal(scanner.Bytes(), &turn); err != nil {
+			return nil, fmt.Errorf("decode conversation turn: %w", err)
+		}
+		turns = append(turns, turn)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan conversation turns: %w", err)
+	}
+	sort.Slice(turns, func(i, j int) bool { return turns[i].Index < turns[j].Index })
+	if lastN > 0 && len(turns) > lastN {
+		turns = turns[len(turns)-lastN:]
+	}
+	return turns, nil
+}
+
+func (s *Store) conversationsDir() string { return filepath.Join(s.root, "conversations") }
+func (s *Store) conversationPath(id string) string {
+	return filepath.Join(s.conversationsDir(), id+".json")
+}
+func (s *Store) conversationTurnPath(id string) string {
+	return filepath.Join(s.conversationsDir(), id+".jsonl")
+}
+
 func (s *Store) sessionPath(id string) string { return filepath.Join(s.sessionsDir(), id+".json") }
 func (s *Store) turnPath(id string) string    { return filepath.Join(s.turnsDir(), id+".jsonl") }
 func (s *Store) rawPath(id string) string     { return filepath.Join(s.rawDir(), id+".jsonl") }
@@ -148,9 +240,12 @@ func (s *Store) writeJSONAtomic(path string, value any) error {
 	if err != nil {
 		return fmt.Errorf("marshal json: %w", err)
 	}
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return fmt.Errorf("write temp file: %w", err)
 	}
+	// Clean up the temp file on rename failure. After a successful rename the
+	// file no longer exists at tmp, so os.Remove is a harmless no-op.
+	defer os.Remove(tmp)
 	if err := os.Rename(tmp, path); err != nil {
 		return fmt.Errorf("rename temp file: %w", err)
 	}
@@ -169,7 +264,7 @@ func (s *Store) readJSON(path string, dest any) error {
 }
 
 func (s *Store) appendJSONL(path string, value any) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("open jsonl: %w", err)
 	}

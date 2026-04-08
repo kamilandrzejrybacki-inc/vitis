@@ -8,12 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/util"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/codex"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/util"
 )
 
-func DoctorCommand(_ context.Context, args []string, stdout, stderr io.Writer) int {
+func DoctorCommand(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	var provider string
@@ -30,11 +31,12 @@ func DoctorCommand(_ context.Context, args []string, stdout, stderr io.Writer) i
 			"provider":           provider,
 			"provider_available": false,
 			"detail":             err.Error(),
+			"rtk":                DetectRTK(provider),
 		})
 		return 1
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	cmdArgs := append(args, "--version")
@@ -50,8 +52,9 @@ func DoctorCommand(_ context.Context, args []string, stdout, stderr io.Writer) i
 		"provider_path":      path,
 		"provider_args":      args,
 		"detail":             detail,
+		"rtk":                DetectRTK(provider),
 		"warnings": []string{
-			"Clank is designed for local PTY control, not hosted brokering of consumer Claude accounts.",
+			"Vitis is designed for local PTY control, not hosted brokering of consumer Claude accounts.",
 		},
 	})
 	return 0
@@ -61,6 +64,8 @@ func providerCommand(provider string) (string, []string) {
 	switch provider {
 	case "", "claude-code":
 		return claudecode.ResolveCommand(nil)
+	case "codex":
+		return codex.ResolveCommand(nil)
 	default:
 		return provider, nil
 	}

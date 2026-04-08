@@ -1,3 +1,9 @@
 logs/
 dist/
 bin/
+vitis
+clank
+mockagent
+.codex
+tests/manual/.build/
+tests/manual/.portkey.env

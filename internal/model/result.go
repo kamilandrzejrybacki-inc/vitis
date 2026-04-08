@@ -1,20 +1,22 @@
 package model
 
 type RunRequest struct {
-	Provider     string
-	Prompt       string
-	PromptFile   string
-	TimeoutSec   int
-	Cwd          string
-	EnvFile      string
-	LogBackend   string
-	LogPath      string
-	DatabaseURL  string
-	PeekLast     int
-	DebugRaw     bool
-	TerminalCols int
-	TerminalRows int
-	HomeDir      string
+	Provider        string
+	Prompt          string
+	PromptFile      string
+	TimeoutSec      int
+	Cwd             string
+	EnvFile         string
+	LogBackend      string
+	LogPath         string
+	DatabaseURL     string
+	PeekLast        int
+	DebugRaw        bool
+	TerminalCols    int
+	TerminalRows    int
+	HomeDir         string
+	Model           string
+	ReasoningEffort string
 }
 
 type ResultMeta struct {

@@ -1,8 +1,8 @@
-# Clank Acceptance
+# Vitis Acceptance
 
-This directory documents manual acceptance checks for Clank against a real local Claude Code installation.
+This directory documents manual acceptance checks for Vitis against a real local Claude Code installation.
 
-For local harness validation without a real Claude Code session, set `CLANK_CLAUDE_BINARY` to a test double such as the bundled mock agent.
+For local harness validation without a real Claude Code session, set `VITIS_CLAUDE_BINARY` to a test double such as the bundled mock agent.
 
 The acceptance goal is not just "does it run".
 

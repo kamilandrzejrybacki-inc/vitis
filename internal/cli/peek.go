@@ -5,9 +5,7 @@ import (
 	"flag"
 	"io"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	filestore "github.com/kamilandrzejrybacki-inc/clank/internal/store/file"
-	pgstore "github.com/kamilandrzejrybacki-inc/clank/internal/store/postgres"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func PeekCommand(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -34,28 +32,14 @@ func PeekCommand(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		return 2
 	}
 
-	var (
-		turns []model.Turn
-		err   error
-	)
-
-	if backend == "db" {
-		store, storeErr := pgstore.New(ctx, databaseURL)
-		if storeErr != nil {
-			_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, storeErr.Error()))
-			return 2
-		}
-		defer store.Close()
-		turns, err = store.PeekTurns(sessionID, last)
-	} else {
-		store, storeErr := filestore.New(logPath, false)
-		if storeErr != nil {
-			_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, storeErr.Error()))
-			return 2
-		}
-		defer store.Close()
-		turns, err = store.PeekTurns(sessionID, last)
+	store, storeErr := buildStore(ctx, backend, logPath, databaseURL, false)
+	if storeErr != nil {
+		_ = WriteJSON(stdout, ErrorResult(model.ErrorConfig, storeErr.Error()))
+		return 2
 	}
+	defer store.Close()
+
+	turns, err := store.PeekTurns(ctx, sessionID, last)
 	if err != nil {
 		_ = WriteJSON(stdout, ErrorResult(model.ErrorNotFound, err.Error()))
 		return 1

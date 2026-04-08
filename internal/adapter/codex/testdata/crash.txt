@@ -1,0 +1,9 @@
+OpenAI Codex v0.1.2025060501 (research preview)
+--------
+workdir: /home/user/project
+model: o4-mini
+--------
+user
+Do something dangerous
+
+ERROR: An unexpected error occurred during execution.

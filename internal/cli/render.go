@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func WriteJSON(w io.Writer, value any) error {
