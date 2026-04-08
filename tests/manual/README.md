@@ -42,6 +42,7 @@ chmod +x tests/manual/*.sh
 | 11 | `11_logs_and_peek.sh`               | no | file-store persistence shape, file permissions (0600), `peek` for both single-shot and conversation logs |
 | 12 | `12_security_path_traversal.sh`    | no | path-traversal hardening (`--working-directory` / `--log-path`), `env_KEY` allowlist enforcement (LD_PRELOAD / CLANK_CLAUDE_ARGS dropped) |
 | 13 | `13_converse_portkey.sh`           | portkey | A2A end-to-end via [portkeyagent](https://github.com/kamilrybacki/portkeyagent) → Portkey gateway → free LLM. Auto-skips if portkeyagent or `PORTKEY_API_KEY` is missing. |
+| 14 | `14_rtk_integration.sh`            | rtk | Verifies [rtk](https://github.com/rtk-ai/rtk) is installed and the rtk PreToolUse hook is active for at least one of the spawned providers. Auto-skips if rtk is missing. |
 
 ## Real-provider tests (08, 09, 10)
 
@@ -63,6 +64,56 @@ Cap the cost on a real run:
 ```bash
 CLANK_MANUAL_MAX_TURNS=2 ./tests/manual/08_converse_real_claude.sh
 ```
+
+## Token efficiency via rtk (script 14, setup_rtk.sh)
+
+[rtk](https://github.com/rtk-ai/rtk) is a CLI proxy that compresses common
+shell command outputs (git, ls, cat, grep, test runners, ...) by 60-90%
+before they reach the agent's context. clank itself doesn't execute
+commands — but the AGENTS clank spawns do, and in A2A conversations where
+two long-lived agents may run dozens of tool calls per conversation,
+having rtk hooks active for both providers translates directly into:
+
+- More turns within each agent's context window
+- Smaller envelopes flowing through the broker
+- Smaller persisted conversation logs
+- Faster model inference per turn
+
+clank's `doctor` subcommand reports rtk health for the queried provider.
+The `rtk` field in the JSON output tells you whether rtk is installed and
+whether the hook is active for that provider. Example:
+
+```bash
+clank doctor --provider claude-code | jq .rtk
+{
+  "available": true,
+  "path": "/home/me/.local/bin/rtk",
+  "version": "rtk 0.28.2",
+  "hook_installed": true,
+  "note": "rtk is active for this provider — shell commands the agent runs will be auto-compressed"
+}
+```
+
+### One-shot setup
+
+```bash
+./tests/manual/setup_rtk.sh
+```
+
+Installs rtk via Homebrew or cargo if missing, runs `rtk init -g` for
+both Claude Code and Codex, and verifies the result via clank doctor.
+
+### Verification
+
+```bash
+./tests/manual/14_rtk_integration.sh
+```
+
+Auto-skips if rtk is not installed (run `setup_rtk.sh` first). Confirms
+rtk is on PATH and at least one provider has the rtk PreToolUse hook
+active. End-to-end token-savings verification (i.e. inspecting the actual
+tool-call traffic of a spawned agent) is left to a real-provider run via
+script 08 or 13.
 
 ## Free-LLM testing via Portkey (script 13)
 

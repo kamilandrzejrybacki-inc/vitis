@@ -31,6 +31,7 @@ func DoctorCommand(ctx context.Context, args []string, stdout, stderr io.Writer)
 			"provider":           provider,
 			"provider_available": false,
 			"detail":             err.Error(),
+			"rtk":                DetectRTK(provider),
 		})
 		return 1
 	}
@@ -51,6 +52,7 @@ func DoctorCommand(ctx context.Context, args []string, stdout, stderr io.Writer)
 		"provider_path":      path,
 		"provider_args":      args,
 		"detail":             detail,
+		"rtk":                DetectRTK(provider),
 		"warnings": []string{
 			"Clank is designed for local PTY control, not hosted brokering of consumer Claude accounts.",
 		},
