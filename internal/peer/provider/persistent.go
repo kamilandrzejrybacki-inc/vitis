@@ -78,6 +78,65 @@ func isHorizontalWhitespace(b []byte) bool {
 	return true
 }
 
+// stripEnvelopeEcho removes the PTY echo of the envelope from the captured
+// response bytes. PTYs in canonical mode echo every byte we write back to
+// the master, so the buffer between cursor and marker contains:
+//
+//	[echo of envelope] + [actual peer reply] + [trailing whitespace before marker]
+//
+// The envelope always ends with the literal instruction
+//
+//	"output the token <MARKER> on its own line."
+//
+// followed by a newline. The first occurrence of "output the token <MARKER>"
+// in the buffer is therefore inside the echoed envelope (the line-anchored
+// matcher above already located the LATER, on-its-own-line marker emitted
+// by the peer's actual reply, so anything we see mid-line here is from the
+// echo). We skip past that line and return whatever follows, trimmed.
+//
+// If no echo is detected (test fakePTY, or a future raw-mode PTY), the
+// function returns the input unchanged so existing tests still pass.
+func stripEnvelopeEcho(captured []byte, marker string) []byte {
+	if len(captured) == 0 {
+		return append([]byte(nil), captured...)
+	}
+	needle := []byte("output the token " + marker)
+	echoStart := bytesIndex(captured, needle)
+	if echoStart < 0 {
+		return append([]byte(nil), captured...)
+	}
+	// Walk to the end of the echoed instruction line.
+	echoLineEnd := echoStart + len(needle)
+	for echoLineEnd < len(captured) && captured[echoLineEnd] != '\n' {
+		echoLineEnd++
+	}
+	if echoLineEnd < len(captured) && captured[echoLineEnd] == '\n' {
+		echoLineEnd++ // consume the newline that terminates the instruction line
+	}
+	// Trim any further leading whitespace (the PTY may emit \r\n or extra
+	// blank lines after the echo).
+	tail := captured[echoLineEnd:]
+	for len(tail) > 0 && (tail[0] == '\n' || tail[0] == '\r' || tail[0] == ' ' || tail[0] == '\t') {
+		tail = tail[1:]
+	}
+	// Trim trailing whitespace too — the marker is line-anchored, so the
+	// preceding line ended with a newline that we don't want in the response.
+	for len(tail) > 0 && (tail[len(tail)-1] == '\n' || tail[len(tail)-1] == '\r' || tail[len(tail)-1] == ' ' || tail[len(tail)-1] == '\t') {
+		tail = tail[:len(tail)-1]
+	}
+	return append([]byte(nil), tail...)
+}
+
+// bytesIndex is a thin wrapper around bytes.Index that returns -1 for nil
+// inputs without panicking. Defined locally to avoid pulling in another
+// import line just for the safe variant.
+func bytesIndex(haystack, needle []byte) int {
+	if len(needle) == 0 || len(haystack) < len(needle) {
+		return -1
+	}
+	return bytes.Index(haystack, needle)
+}
+
 // rawPTYProcess is the narrow view of terminal.PseudoTerminalProcess that
 // PersistentProcess depends on. Defining it locally lets the wrapper be
 // unit-tested with a fakePTY without importing internal/terminal.
@@ -192,7 +251,7 @@ func (p *PersistentProcess) ConverseTurn(ctx context.Context, envelopeBytes []by
 		if p.cursor < len(p.buffer) {
 			tail := p.buffer[p.cursor:]
 			if idx := findLineAnchoredMarker(tail, markerBytes); idx >= 0 {
-				resp := append([]byte(nil), tail[:idx]...)
+				resp := stripEnvelopeEcho(tail[:idx], marker)
 				// P1-3: bytes that arrived AFTER the marker in the same chunk
 				// are PTY echo or shell chrome from the previous turn boundary.
 				// Discarding them prevents leakage into turn N+1's response.

@@ -53,24 +53,20 @@ MANUAL_BUILD_DIR="${MANUAL_BUILD_DIR:-${REPO_ROOT}/tests/manual/.build}"
 mkdir -p "${MANUAL_BUILD_DIR}"
 export MANUAL_BUILD_DIR
 
-# Build clank binary on demand. The first script that needs it pays the cost;
-# subsequent scripts in the same suite reuse it.
+# Build clank binary on demand. Always invokes `go build` because Go's build
+# cache makes the no-op case essentially free, and an mtime check on a single
+# source file misses changes anywhere else in the dependency graph (we have
+# been bitten by stale binaries comparing only cmd/clank/main.go).
 clank_bin() {
   local bin="${MANUAL_BUILD_DIR}/clank"
-  if [[ ! -x "${bin}" ]] || [[ "${REPO_ROOT}/cmd/clank/main.go" -nt "${bin}" ]]; then
-    info "Building clank → ${bin}"
-    ( cd "${REPO_ROOT}" && go build -o "${bin}" ./cmd/clank ) || fail "go build clank failed"
-  fi
+  ( cd "${REPO_ROOT}" && go build -o "${bin}" ./cmd/clank ) || fail "go build clank failed"
   echo "${bin}"
 }
 
-# Build the mock agent binary on demand.
+# Build the mock agent binary on demand. Same rationale as clank_bin.
 mockagent_bin() {
   local bin="${MANUAL_BUILD_DIR}/mockagent"
-  if [[ ! -x "${bin}" ]] || [[ "${REPO_ROOT}/internal/testutil/mockagent/main.go" -nt "${bin}" ]]; then
-    info "Building mockagent → ${bin}"
-    ( cd "${REPO_ROOT}" && go build -o "${bin}" ./internal/testutil/mockagent ) || fail "go build mockagent failed"
-  fi
+  ( cd "${REPO_ROOT}" && go build -o "${bin}" ./internal/testutil/mockagent ) || fail "go build mockagent failed"
   echo "${bin}"
 }
 

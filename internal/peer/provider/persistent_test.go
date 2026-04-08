@@ -157,6 +157,102 @@ func TestEnvelopeIsWrittenToPTY(t *testing.T) {
 	require.Equal(t, "hello envelope", written)
 }
 
+// P4 regression: the captured response must NOT contain the PTY echo of
+// the envelope. PTYs in canonical mode echo our writes back to the master
+// side, so the buffer contains [echo of envelope] + [actual peer reply] +
+// [marker]. stripEnvelopeEcho walks past the echoed instruction line and
+// returns only the actual reply.
+func TestStripEnvelopeEchoBasic(t *testing.T) {
+	marker := "TURN_END_abc123"
+	envelope := "[conversation: c1 turn 1 of 5 from: seed]\n" +
+		"hi there\n" +
+		"\n" +
+		"When you finish your reply, output the token " + marker + " on its own line.\n"
+	reply := "hello back from the model"
+	// Buffer between cursor and marker: echo of envelope + actual reply.
+	captured := []byte(envelope + reply + "\n")
+
+	got := stripEnvelopeEcho(captured, marker)
+	if string(got) != reply {
+		t.Fatalf("stripEnvelopeEcho returned %q, want %q", got, reply)
+	}
+}
+
+func TestStripEnvelopeEchoNoEcho(t *testing.T) {
+	// fakePTY in tests doesn't echo, so the captured bytes are just the
+	// reply. stripEnvelopeEcho should return them unchanged (modulo the
+	// trailing-whitespace trim, which still trims trailing newlines).
+	got := stripEnvelopeEcho([]byte("hello back\n"), "TURN_END_xxx")
+	if string(got) != "hello back\n" {
+		// Note: the no-echo path returns the input unchanged (including
+		// trailing newline) because the trim only happens on the
+		// echo-detected branch. Verify this is the actual behavior.
+		t.Fatalf("no-echo path mutated input: got %q, want %q", got, "hello back\n")
+	}
+}
+
+func TestStripEnvelopeEchoEmpty(t *testing.T) {
+	got := stripEnvelopeEcho(nil, "TURN_END_xxx")
+	if len(got) != 0 {
+		t.Fatalf("expected empty, got %q", got)
+	}
+}
+
+func TestStripEnvelopeEchoMultilineReply(t *testing.T) {
+	marker := "TURN_END_xyz"
+	envelope := "When you finish your reply, output the token " + marker + " on its own line.\n"
+	reply := "line 1\nline 2\nline 3"
+	captured := []byte(envelope + reply + "\n")
+
+	got := stripEnvelopeEcho(captured, marker)
+	if string(got) != reply {
+		t.Fatalf("got %q, want %q", got, reply)
+	}
+}
+
+func TestStripEnvelopeEchoWithCRLF(t *testing.T) {
+	// Real PTYs may translate \n to \r\n in the echo direction. The strip
+	// helper should still find the instruction line.
+	marker := "TURN_END_crlf"
+	envelope := "When you finish your reply, output the token " + marker + " on its own line.\r\n"
+	reply := "real reply"
+	captured := []byte(envelope + "\r\n" + reply + "\n")
+
+	got := stripEnvelopeEcho(captured, marker)
+	if string(got) != reply {
+		t.Fatalf("got %q, want %q", got, reply)
+	}
+}
+
+// P4 end-to-end: ConverseTurn returns ONLY the actual reply when the buffer
+// contains the echoed envelope before it. This is the integration test for
+// the strip-echo fix; it uses fakePTY to deterministically reproduce the
+// echo + reply layout.
+func TestConverseTurnStripsEnvelopeEcho(t *testing.T) {
+	pty := newFakePTY()
+	pp := NewPersistentProcess(pty)
+	defer pp.Close(0)
+
+	marker := "TURN_END_e2e1234"
+	envelopeBody := "[conversation: c1 turn 1 of 5 from: seed]\n" +
+		"hi there\n" +
+		"\n" +
+		"When you finish your reply, output the token " + marker + " on its own line.\n"
+	reply := "the model's actual answer"
+
+	// Simulate PTY echo: emit the envelope, then the reply, then the marker.
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		pty.emit(envelopeBody) // PTY echo of what we just wrote
+		pty.emit(reply + "\n")
+		pty.emit(marker + "\n")
+	}()
+
+	resp, err := pp.ConverseTurn(context.Background(), []byte(envelopeBody), marker, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, reply, string(resp), "ConverseTurn should return ONLY the model reply, not the echoed envelope")
+}
+
 // P3 regression: the marker token must be matched line-anchored, NOT as a
 // substring. If the PTY echoes the envelope back, the envelope text contains
 // the literal marker mid-line (in the "output the token <MARKER> on its own

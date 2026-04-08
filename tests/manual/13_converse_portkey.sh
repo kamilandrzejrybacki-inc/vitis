@@ -116,4 +116,3 @@ case "${status}" in
 esac
 
 verify "human review: scroll up and confirm the streamed turns show real model-generated content (not just echoed envelopes, not empty replies, not error messages)"
-verify "known limitation: the captured 'response' field includes the PTY echo of the envelope as a prefix. The actual model reply is at the end. Sentinel + marker matching still work because both are line-anchored."
