@@ -16,9 +16,15 @@ func main() {
 	exitCode, _ := strconv.Atoi(env("MOCK_EXIT_CODE", "0"))
 	multiTurn := env("MOCK_MULTI_TURN", "0") == "1"
 	sentinelAt, _ := strconv.Atoi(env("MOCK_SENTINEL_AT_TURN", "0"))
+	// Phase 7: addressed-routing trailer support for N-peer integration tests.
+	// MOCK_NEXT_TRAILER=<id>: append "<<NEXT: id>>" to every multi-turn reply.
+	// Setting it to a real declared peer id exercises the addressed path;
+	// setting it to a bogus id (e.g. "ghost") exercises the unknown-addressee
+	// fallback. Leaving it unset exercises the no-trailer round-robin path.
+	nextTrailer := env("MOCK_NEXT_TRAILER", "")
 
 	if multiTurn {
-		runMultiTurn(delayMs, response, sentinelAt)
+		runMultiTurn(delayMs, response, sentinelAt, nextTrailer)
 		return
 	}
 
@@ -65,7 +71,7 @@ func main() {
 //  4. prints the marker token on its own line
 //
 // The loop exits cleanly on stdin EOF.
-func runMultiTurn(delayMs int, response string, sentinelAt int) {
+func runMultiTurn(delayMs int, response string, sentinelAt int, nextTrailer string) {
 	reader := bufio.NewReader(os.Stdin)
 	turn := 0
 	for {
@@ -78,6 +84,13 @@ func runMultiTurn(delayMs int, response string, sentinelAt int) {
 			time.Sleep(time.Duration(delayMs) * time.Millisecond)
 		}
 		body := response
+		// Append the addressed-routing trailer (if configured) BEFORE the
+		// sentinel — when both are present, the broker's policy parser
+		// gives <<END>> precedence on the last non-empty line, so the
+		// sentinel must remain the final line.
+		if nextTrailer != "" {
+			body = body + "\n<<NEXT: " + nextTrailer + ">>"
+		}
 		if sentinelAt > 0 && turn == sentinelAt {
 			body = body + "\n<<END>>"
 		}

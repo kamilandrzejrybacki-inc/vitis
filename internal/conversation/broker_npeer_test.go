@@ -141,6 +141,91 @@ func TestBrokerNPeerAddressedRouting(t *testing.T) {
 	}
 }
 
+// TestBrokerNPeerUnknownAddresseeFallsBack verifies that a <<NEXT: ghost>>
+// trailer naming an undeclared peer logs the parsed id but falls back to
+// round-robin in declared order. NextIDParsed should still capture "ghost"
+// for downstream observability.
+func TestBrokerNPeerUnknownAddresseeFallsBack(t *testing.T) {
+	b := inproc.New()
+	defer b.Close()
+
+	alice := mock.New(mock.Script{Responses: []string{
+		"hi\n<<NEXT: ghost>>",
+		"a2",
+	}})
+	bob := mock.New(mock.Script{Responses: []string{"b1"}})
+	carol := mock.New(mock.Script{Responses: []string{"never"}})
+
+	conv := newConv3(3)
+	br := NewBroker(BrokerDeps{
+		Conversation: conv,
+		Terminator:   terminator.NewSentinel("<<END>>"),
+		Bus:          b,
+		Store:        discardStore{},
+		PeersByID: map[model.PeerID]peer.PeerTransport{
+			"alice": alice, "bob": bob, "carol": carol,
+		},
+		PeerOrder: []model.PeerID{"alice", "bob", "carol"},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	res, err := br.Run(ctx)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(res.Turns), 2)
+
+	// Turn 0 (alice's reply with the bogus trailer):
+	// - NextIDParsed should be "ghost" (the parser captured what it saw)
+	// - FallbackUsed = true (id wasn't in PeerOrder)
+	// - Reason = opener (pinned for the first turn regardless)
+	require.NotNil(t, res.Turns[0].NextIDParsed)
+	require.Equal(t, model.PeerID("ghost"), *res.Turns[0].NextIDParsed)
+	require.True(t, res.Turns[0].FallbackUsed)
+	require.Equal(t, model.TurnReasonOpener, res.Turns[0].Reason)
+
+	// Turn 1 should be from bob (round-robin: alice -> bob).
+	require.Equal(t, model.PeerID("bob"), res.Turns[1].FromID)
+}
+
+// TestBrokerNPeerSelfAddressFallsBack verifies that <<NEXT: alice>>
+// emitted by alice itself is rejected and falls back to round-robin.
+// The self-monologue lock vector is closed at the policy layer.
+func TestBrokerNPeerSelfAddressFallsBack(t *testing.T) {
+	b := inproc.New()
+	defer b.Close()
+
+	alice := mock.New(mock.Script{Responses: []string{
+		"hi me\n<<NEXT: alice>>",
+		"a2",
+	}})
+	bob := mock.New(mock.Script{Responses: []string{"b1"}})
+	carol := mock.New(mock.Script{Responses: []string{"never"}})
+
+	conv := newConv3(3)
+	br := NewBroker(BrokerDeps{
+		Conversation: conv,
+		Terminator:   terminator.NewSentinel("<<END>>"),
+		Bus:          b,
+		Store:        discardStore{},
+		PeersByID: map[model.PeerID]peer.PeerTransport{
+			"alice": alice, "bob": bob, "carol": carol,
+		},
+		PeerOrder: []model.PeerID{"alice", "bob", "carol"},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	res, err := br.Run(ctx)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(res.Turns), 2)
+
+	require.NotNil(t, res.Turns[0].NextIDParsed)
+	require.Equal(t, model.PeerID("alice"), *res.Turns[0].NextIDParsed)
+	require.True(t, res.Turns[0].FallbackUsed, "self-address must trigger fallback")
+
+	require.Equal(t, model.PeerID("bob"), res.Turns[1].FromID, "round-robin gives the next slot to bob")
+}
+
 // TestBrokerNPeerSentinelEnds verifies that <<END>> from a middle peer
 // terminates the 3-peer conversation cleanly with the correct status.
 func TestBrokerNPeerSentinelEnds(t *testing.T) {
