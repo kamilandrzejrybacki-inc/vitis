@@ -77,11 +77,14 @@ This ADR covers the **core runtime** only. The web UI is a separate spec and dep
   - `internal/model/conversation.go` (Envelope v2 fields, `PeerParticipant`, `TurnReason`, v2 Conversation and ConversationTurn fields)
   - `internal/model/envelope_v2_test.go`, `conversation_v2_test.go`
 - **Phase 3 (TurnPolicy package with AddressedPolicy):** DONE
-  - `internal/orchestrator/policy/{policy,addressed,roundrobin}.go`
-  - `internal/orchestrator/policy/addressed_test.go`, `fuzz_test.go`
-- **Phase 4 (orchestrator turn-loop delegates to policy):** NOT STARTED
+  - `internal/conversation/policy/{policy,addressed,roundrobin}.go` (moved from `internal/orchestrator/policy/` — the package was misplaced in the plan; the turn loop lives in `internal/conversation`, not `internal/orchestrator`)
+  - `internal/conversation/policy/addressed_test.go`, `fuzz_test.go`
+- **Phase 4 (broker turn-loop delegates to policy):** DONE
+  - `internal/conversation/broker.go` — `BrokerDeps.Policy` field, `NewBroker` defaults to `AddressedPolicy`, turn loop calls `policy.Next()` immediately after each turn (before the max-turns short-circuit so the cap-hit turn gets the same enriched fields as every other turn), populates `FromID`/`ToID`/`Reason`/`FallbackUsed`/`NextIDParsed`, drives the next slot via `slotFromPeerID`.
+  - For the current 2-peer transport surface, `AddressedPolicy`'s round-robin fallback over `["a","b"]` is equivalent to strict alternation when replies carry no trailer — so all existing broker tests stay green without modification.
+  - New test: `broker_policy_test.go` verifies both the opener-turn pinning and the no-trailer fallback path end-to-end.
 - **Phase 5 (store schema v2 writer + v1 compat reader):** NOT STARTED
 - **Phase 6 (CLI repeatable flags + alias layer):** NOT STARTED
 - **Phase 7 (mock agent extensions + N-peer integration tests + manual scripts):** NOT STARTED
 
-Phases 4–7 are deferred to follow-up sessions. The code committed so far is purely additive — the existing 2-peer runtime is untouched, and the full test suite (except one pre-existing, unrelated PTY flake) remains green.
+Phases 5–7 are deferred to follow-up sessions. The code committed so far is purely additive — the existing 2-peer runtime is untouched, and the full test suite is fully green (the pre-existing `TestRunHappyPath` PTY-glyph flake was also fixed as an incidental cleanup in commit `951b37e`).
