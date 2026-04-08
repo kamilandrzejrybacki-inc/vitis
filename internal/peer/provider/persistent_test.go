@@ -156,3 +156,35 @@ func TestEnvelopeIsWrittenToPTY(t *testing.T) {
 	pty.mu.Unlock()
 	require.Equal(t, "hello envelope", written)
 }
+
+// P1-3 regression: bytes that arrive AFTER the marker in the same chunk
+// must NOT leak into the next turn's response. The ConverseTurn that
+// observes the marker must drop trailing bytes; the next ConverseTurn must
+// not see them.
+func TestConverseTurnDiscardsPostMarkerBytes(t *testing.T) {
+	pty := newFakePTY()
+	pp := NewPersistentProcess(pty)
+	defer pp.Close(0)
+
+	// Emit turn 1's reply, marker, and post-marker chrome in a single chunk.
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		pty.emit("turn1 reply\nTURN_END_111111111111\nleftover chrome line\n")
+	}()
+	r1, err := pp.ConverseTurn(context.Background(), []byte("e1"), "TURN_END_111111111111", time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "turn1 reply", strings.TrimSpace(string(r1)))
+	require.NotContains(t, string(r1), "leftover")
+
+	// Now emit turn 2's reply. The buffer must NOT still contain
+	// "leftover chrome line" from turn 1.
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		pty.emit("turn2 reply\nTURN_END_222222222222\n")
+	}()
+	r2, err := pp.ConverseTurn(context.Background(), []byte("e2"), "TURN_END_222222222222", time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "turn2 reply", strings.TrimSpace(string(r2)))
+	require.NotContains(t, string(r2), "leftover", "turn 2 must not see post-marker chrome from turn 1")
+	require.NotContains(t, string(r2), "chrome", "turn 2 must not see post-marker chrome from turn 1")
+}

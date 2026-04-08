@@ -138,9 +138,14 @@ func (p *PersistentProcess) ConverseTurn(ctx context.Context, envelopeBytes []by
 			tail := p.buffer[p.cursor:]
 			if idx := bytes.Index(tail, markerBytes); idx >= 0 {
 				resp := append([]byte(nil), tail[:idx]...)
-				p.cursor += idx + len(markerBytes)
-				// Compact the buffer: discard consumed bytes so memory is freed.
-				p.buffer = append([]byte(nil), p.buffer[p.cursor:]...)
+				// P1-3: bytes that arrived AFTER the marker in the same chunk
+				// are PTY echo or shell chrome from the previous turn boundary.
+				// Discarding them prevents leakage into turn N+1's response.
+				// Reset the buffer entirely so the next turn starts with a
+				// clean slate. Any post-marker bytes are dropped (and could
+				// be surfaced as a `post_marker_chatter` warning in a future
+				// pass — see spec §4 failure-handling table).
+				p.buffer = nil
 				p.cursor = 0
 				return resp, nil
 			}
@@ -194,4 +199,3 @@ func (p *PersistentProcess) drainAvailable() []byte {
 	p.cursor = len(p.buffer)
 	return out
 }
-
