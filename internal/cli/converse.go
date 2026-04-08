@@ -51,6 +51,26 @@ func (r *repeatableFlag) Set(value string) error {
 	return nil
 }
 
+// stringSliceFlag implements flag.Value for repeatable string flags
+// (e.g. --peer id=alice,provider=claude-code,seed="..."). Each Set call
+// appends the raw value verbatim; parsing into a structured form happens
+// later in parseN­PeerSpecs.
+type stringSliceFlag struct {
+	values []string
+}
+
+func (s *stringSliceFlag) String() string {
+	if s == nil {
+		return ""
+	}
+	return strings.Join(s.values, "; ")
+}
+
+func (s *stringSliceFlag) Set(value string) error {
+	s.values = append(s.values, value)
+	return nil
+}
+
 // ConverseCommand parses arguments, validates them, runs the conversation,
 // and writes the FinalResult as JSON to stdout. Diagnostic messages go to
 // stderr. Returns:
@@ -86,13 +106,31 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 	fs.Var(peerAOpts, "peer-a-opt", "peer A option (repeatable, key=value)")
 	fs.Var(peerBOpts, "peer-b-opt", "peer B option (repeatable, key=value)")
 
+	// N-peer flag (Phase 6). Repeatable. When at least one --peer is set,
+	// the CLI takes the N-peer path; otherwise it falls back to the legacy
+	// --peer-a/--peer-b path. Mixing both is a configuration error.
+	nPeers := &stringSliceFlag{}
+	fs.Var(nPeers, "peer", "N-peer declaration (repeatable). Format: id=<id>,provider=<provider>[,seed=\"...\",model=...,reasoning-effort=...,cwd=...,home=...]")
+
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	// Validation
+	// Branch on N-peer vs legacy 2-peer mode.
+	if len(nPeers.values) > 0 {
+		if *peerA != "" || *peerB != "" {
+			fmt.Fprintln(stderr, "converse: cannot mix --peer with --peer-a/--peer-b")
+			return 2
+		}
+		return runNPeerConverse(ctx, nPeers.values, *seed, *opener,
+			*maxTurns, *terminatorKind, *sentinelTok, *perTurnTimeout, *overallTimeout,
+			*busKind, *logBackend, *logPath, *workingDir, *streamTurns, *replyStyle,
+			stdout, stderr)
+	}
+
+	// Validation (legacy 2-peer path)
 	if *peerA == "" || *peerB == "" {
-		fmt.Fprintln(stderr, "converse: --peer-a and --peer-b are required")
+		fmt.Fprintln(stderr, "converse: --peer-a and --peer-b are required (or use --peer for N-peer mode)")
 		return 2
 	}
 	if *seed == "" && (*seedA == "" || *seedB == "") {
