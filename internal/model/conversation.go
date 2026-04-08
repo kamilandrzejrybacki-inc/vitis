@@ -125,11 +125,18 @@ type Verdict struct {
 // The Body field is the literal text the peer sees on stdin/PTY (or the
 // 'body' field of a stdio frame). MarkerToken is the per-turn termination
 // marker the peer is instructed to emit.
+//
+// FromID and ToID are the v2 (N-peer) routing fields and are populated
+// alongside the legacy From slot during the migration window. Readers
+// SHOULD prefer FromID/ToID when set and fall back to From for legacy
+// 2-peer sessions.
 type Envelope struct {
 	ConversationID  string   `json:"conversation_id"`
 	TurnIndex       int      `json:"turn_index"`
 	MaxTurns        int      `json:"max_turns"`
 	From            PeerSlot `json:"from"`
+	FromID          PeerID   `json:"from_id,omitempty"`
+	ToID            PeerID   `json:"to_id,omitempty"`
 	Body            string   `json:"body"`
 	MarkerToken     string   `json:"marker_token"`
 	IncludeBriefing bool     `json:"include_briefing"`
