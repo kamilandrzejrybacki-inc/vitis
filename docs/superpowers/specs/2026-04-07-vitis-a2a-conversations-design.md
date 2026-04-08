@@ -388,7 +388,7 @@ type TurnBoundaryDetector interface {
 
 Adapters implement this **optionally**. The persistent PTY runtime asserts the interface at runtime; if absent, it relies entirely on the marker token plus per-turn timeout. Existing `Adapter` interface is unchanged. Single-shot path is unaffected.
 
-#### `clankTransport` (remote vitis peer)
+#### `RemoteTransport` (remote vitis peer)
 
 - `Start` subscribes to its inbox topic (`conv/<id>/peer-<slot>/in`) on the shared bus.
 - `Deliver` publishes the envelope to the *remote* peer's inbox (the remote vitis-converse-serve process is the actual subscriber there) and awaits the corresponding `turn` message on `conv/<id>/turn`.
@@ -706,8 +706,8 @@ vitis/
             provider/
                 provider.go                 # local PTY peer transport
                 persistent.go               # PersistentPseudoTerminalProcess impl
-            clankremote/
-                clankremote.go              # vitis:// peer transport
+            remote/
+                remote.go              # vitis:// peer transport
             stdio/
                 stdio.go                    # stdio:// peer transport
         terminator/                         # NEW
@@ -846,7 +846,7 @@ const (
 ### M3 — Distributed and Observable
 
 - NATS bus backend (external + embedded)
-- `clankTransport` (`vitis://` peer)
+- `RemoteTransport` (`vitis://` peer)
 - `vitis converse-serve` subcommand
 - `vitis converse-tail` subcommand
 - Integration tests across two vitis processes via NATS testcontainer

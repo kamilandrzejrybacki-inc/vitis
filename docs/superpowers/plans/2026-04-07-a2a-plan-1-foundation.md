@@ -1273,7 +1273,7 @@ Create `internal/peer/transport.go`:
 // broker. Concrete implementations live in subpackages:
 //
 //   internal/peer/provider     - local persistent PTY peer (Plan 2)
-//   internal/peer/clankremote  - remote vitis peer over the bus (Plan 4)
+//   internal/peer/remote  - remote vitis peer over the bus (Plan 4)
 //   internal/peer/stdio        - this process's stdin/stdout (Plan 5)
 //   internal/peer/mock         - scripted in-memory transport for tests
 //
@@ -2506,11 +2506,11 @@ Walking the spec section by section:
 | §1a Product Boundary | N/A — no I/O |  |
 | §2 Architecture | Broker, Bus, Terminator, Store, ConversationStore subset all in place | — |
 | §3 Data model | Conversation, ConversationTurn, ConversationPatch, PeerSpec, TerminatorSpec, Verdict, Envelope all in `internal/model/conversation.go` | — |
-| §4 Peer transport | PeerTransport interface + mock impl. Real provider/clankremote/stdio in Plans 2/4/5 | Plans 2/4/5 |
+| §4 Peer transport | PeerTransport interface + mock impl. Real provider/remote/stdio in Plans 2/4/5 | Plans 2/4/5 |
 | §5 Broker | Strict alternation, hard max-turns, sentinel termination via real Terminator, error/cancel/crash control draining, finalize semantics | — |
 | §6 Bus | Bus interface + inproc backend; NATS in Plan 4 | Plan 4 |
 | §7 CLI | NOT in Plan 1 — Plan 2 ships `vitis converse` | Plan 2 |
-| §8 Project layout | All M1 directories created except `peer/provider`, `peer/clankremote`, `peer/stdio`, `terminator/judge`, `bus/nats`, `cli/converse*`, `terminal/persistent` | Plans 2/3/4/5 |
+| §8 Project layout | All M1 directories created except `peer/provider`, `peer/remote`, `peer/stdio`, `terminator/judge`, `bus/nats`, `cli/converse*`, `terminal/persistent` | Plans 2/3/4/5 |
 | §9 Error model | ConvError, ConvPeerCrashed, ConvPeerBlocked, ConvInterrupted, ConvMaxTurnsHit, ConvCompletedSentinel all reachable in broker; warnings collected | — |
 | §10 Testing | Unit + integration via mock peers; full race-detector suite green | Real PTY integration tests in Plan 2 |
 | §11 Milestones | Implements the broker + sentinel + bus + file persistence portion of M1 | — |
