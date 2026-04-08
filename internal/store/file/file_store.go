@@ -150,13 +150,27 @@ func (s *Store) Close() error { return nil }
 
 // --- Conversation persistence (A2A) ---
 
+// stampSchemaVersion sets conv.SchemaVersion = 2 when the conversation
+// carries v2 fields (Peers / Seeds / OpenerID). Pure 2-peer legacy
+// writes leave SchemaVersion at 0 so the on-disk JSON omits the field
+// and remains byte-compatible with existing v1 fixtures and tests.
+func stampSchemaVersion(conv model.Conversation) model.Conversation {
+	if conv.SchemaVersion != 0 {
+		return conv
+	}
+	if len(conv.Peers) > 0 || len(conv.Seeds) > 0 || conv.OpenerID != "" {
+		conv.SchemaVersion = 2
+	}
+	return conv
+}
+
 func (s *Store) CreateConversation(_ context.Context, conv model.Conversation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := os.MkdirAll(s.conversationsDir(), 0o700); err != nil {
 		return fmt.Errorf("mkdir conversations: %w", err)
 	}
-	return s.writeJSONAtomic(s.conversationPath(conv.ID), conv)
+	return s.writeJSONAtomic(s.conversationPath(conv.ID), stampSchemaVersion(conv))
 }
 
 func (s *Store) UpdateConversation(_ context.Context, conversationID string, patch model.ConversationPatch) error {
