@@ -87,3 +87,13 @@ func TestConversationTurnJSONRoundTrip(t *testing.T) {
 	require.NoError(t, json.Unmarshal(data, &decoded))
 	require.Equal(t, turn, decoded)
 }
+
+func TestConversation_TimeoutDurations(t *testing.T) {
+	c := Conversation{PerTurnTimeout: 30, OverallTimeout: 600}
+	require.Equal(t, 30*time.Second, c.PerTurnTimeoutDuration())
+	require.Equal(t, 600*time.Second, c.OverallTimeoutDuration())
+
+	zero := Conversation{}
+	require.Equal(t, time.Duration(0), zero.PerTurnTimeoutDuration())
+	require.Equal(t, time.Duration(0), zero.OverallTimeoutDuration())
+}
