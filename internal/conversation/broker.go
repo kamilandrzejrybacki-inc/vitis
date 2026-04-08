@@ -31,6 +31,19 @@ type ConversationStore interface {
 const defaultDrainWindow = 50 * time.Millisecond
 
 // BrokerDeps bundles the dependencies needed to construct a Broker.
+//
+// Two transport-surface modes are supported:
+//
+//  1. Legacy 2-peer: set PeerA and PeerB. Leave PeersByID nil. The broker
+//     synthesizes peer ids "a" and "b" from the slots and runs strict
+//     alternation (or addressed routing if peers emit <<NEXT>> trailers).
+//
+//  2. N-peer: set PeersByID with one entry per declared peer, and PeerOrder
+//     listing the peer ids in declared order (used by round-robin fallback
+//     and by the broker's Start/Stop iteration). PeerA/PeerB are ignored.
+//
+// Mixing modes (both PeersByID and PeerA/PeerB set) is a programming
+// error and produces undefined behavior — NewBroker does not validate it.
 type BrokerDeps struct {
 	Conversation model.Conversation
 	PeerA        peer.PeerTransport
@@ -42,17 +55,27 @@ type BrokerDeps struct {
 	// use the default (50ms). Tests may set this to a shorter value.
 	DrainWindow time.Duration
 	// Policy selects the next speaker after each non-terminal turn. Zero
-	// value means use AddressedPolicy, which for the current 2-peer
-	// transport surface reduces to strict alternation (<<NEXT: id>>
-	// trailers are parsed if present, round-robin fallback otherwise —
-	// and round-robin over a 2-peer ["a","b"] slice IS strict alternation).
+	// value means use AddressedPolicy, which for the legacy 2-peer surface
+	// reduces to strict alternation when replies carry no trailer.
 	Policy policy.TurnPolicy
+	// PeersByID maps peer id -> transport for N-peer conversations. When
+	// non-nil, PeerA/PeerB are ignored.
+	PeersByID map[model.PeerID]peer.PeerTransport
+	// PeerOrder is the declared order of peer ids; used by round-robin
+	// fallback and by the Start/Stop iteration. Required when PeersByID
+	// is set; ignored otherwise.
+	PeerOrder []model.PeerID
 }
 
-// legacyPeerIDs returns the declared peer order for the 2-peer transport
-// surface. When N-peer BrokerDeps are introduced in a later phase, this
-// helper will be replaced by a slice derived from Conversation.Peers.
-var legacyPeerIDs = []model.PeerID{"a", "b"}
+// peerIDs returns the declared peer order for the active transport surface.
+// In legacy 2-peer mode it returns ["a","b"]; in N-peer mode it returns
+// PeerOrder.
+func (b *Broker) peerIDs() []model.PeerID {
+	if len(b.deps.PeersByID) > 0 && len(b.deps.PeerOrder) > 0 {
+		return b.deps.PeerOrder
+	}
+	return []model.PeerID{"a", "b"}
+}
 
 // slotFromPeerID maps a PeerID back to its legacy PeerSlot. Only "a" and
 // "b" are valid under the current 2-peer transport surface; any other id
@@ -94,24 +117,13 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 		warnings = append(warnings, fmt.Sprintf("store create_conversation: %v", err))
 	}
 
-	// Start both peers.
-	if err := b.deps.PeerA.Start(ctx, conv.PeerA, b.deps.Bus, conv.ID, model.PeerSlotA); err != nil {
-		return b.finalize(ctx, conv, nil, warnings, model.ConvError, fmt.Sprintf("peer A start: %v", err))
+	// Start all declared peers (legacy 2-peer or N-peer mode).
+	if err := b.startAllPeers(ctx, conv); err != nil {
+		return b.finalize(ctx, conv, nil, warnings, model.ConvError, err.Error())
 	}
-	if err := b.deps.PeerB.Start(ctx, conv.PeerB, b.deps.Bus, conv.ID, model.PeerSlotB); err != nil {
-		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = b.deps.PeerA.Stop(stopCtx, time.Second)
-		stopCancel()
-		return b.finalize(ctx, conv, nil, warnings, model.ConvError, fmt.Sprintf("peer B start: %v", err))
-	}
-	defer func() {
-		// Use a fresh background context so Stop succeeds even when the run
-		// context has already been cancelled (H3).
-		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer stopCancel()
-		_ = b.deps.PeerA.Stop(stopCtx, time.Second)
-		_ = b.deps.PeerB.Stop(stopCtx, time.Second)
-	}()
+	// Use a fresh background context so Stop succeeds even when the run
+	// context has already been cancelled (H3).
+	defer b.stopAllPeers()
 
 	// Start the terminator.
 	if err := b.deps.Terminator.Start(ctx, conv, b.deps.Bus); err != nil {
@@ -127,9 +139,22 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 	defer ctlCancel()
 
 	turns := make([]model.ConversationTurn, 0, conv.MaxTurns)
-	active := conv.Opener
-	if active != model.PeerSlotA && active != model.PeerSlotB {
-		active = model.PeerSlotA
+
+	// Determine the opener slot.
+	// - N-peer mode: use Conversation.OpenerID; fall back to PeerOrder[0].
+	// - Legacy mode: use Conversation.Opener; fall back to PeerSlotA.
+	var active model.PeerSlot
+	if len(b.deps.PeersByID) > 0 {
+		openerID := conv.OpenerID
+		if openerID == "" && len(b.deps.PeerOrder) > 0 {
+			openerID = b.deps.PeerOrder[0]
+		}
+		active = model.PeerSlot(openerID)
+	} else {
+		active = conv.Opener
+		if active != model.PeerSlotA && active != model.PeerSlotB {
+			active = model.PeerSlotA
+		}
 	}
 
 	envelope := BuildEnvelopeTurn1(conv, active, NewMarkerToken())
@@ -181,7 +206,7 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 		if conv.Terminator.Kind == "sentinel" {
 			nextResponse = terminator.StripSentinel(nextResponse, conv.Terminator.Sentinel)
 		}
-		decision := b.deps.Policy.Next(currentID, nextResponse, legacyPeerIDs)
+		decision := b.deps.Policy.Next(currentID, nextResponse, b.peerIDs())
 		last := &turns[len(turns)-1]
 		last.ToID = decision.Next
 		if last.Reason != model.TurnReasonOpener {
@@ -233,17 +258,116 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 		// was computed above (before the max-turns cap) so every turn
 		// record is populated consistently; here we just use the chosen
 		// next peer to drive the next iteration.
-		next := slotFromPeerID(decision.Next)
+		//
+		// In legacy 2-peer mode the chosen id is "a" or "b" and maps
+		// directly to the corresponding slot. In N-peer mode the slot
+		// IS the peer id (PeerSlot is a bare string), so the same
+		// conversion is a no-op.
+		var next model.PeerSlot
+		if len(b.deps.PeersByID) > 0 {
+			next = model.PeerSlot(decision.Next)
+		} else {
+			next = slotFromPeerID(decision.Next)
+		}
 		envelope = BuildEnvelopeTurnN(conv, conv.TurnsConsumed+1, active, nextResponse, NewMarkerToken())
 		active = next
 	}
 }
 
 func (b *Broker) transportFor(slot model.PeerSlot) peer.PeerTransport {
+	// N-peer mode: look up by peer id (the slot string IS the peer id).
+	if len(b.deps.PeersByID) > 0 {
+		if t, ok := b.deps.PeersByID[model.PeerID(slot)]; ok {
+			return t
+		}
+	}
+	// Legacy 2-peer mode.
 	if slot == model.PeerSlotA {
 		return b.deps.PeerA
 	}
 	return b.deps.PeerB
+}
+
+// startAllPeers starts every declared peer transport. In legacy 2-peer mode
+// this is just PeerA + PeerB; in N-peer mode it iterates PeerOrder and the
+// PeersByID map. On any failure, already-started peers are stopped before
+// returning.
+func (b *Broker) startAllPeers(ctx context.Context, conv model.Conversation) error {
+	if len(b.deps.PeersByID) > 0 {
+		started := make([]model.PeerID, 0, len(b.deps.PeerOrder))
+		for _, id := range b.deps.PeerOrder {
+			t, ok := b.deps.PeersByID[id]
+			if !ok {
+				b.stopPeerIDs(started)
+				return fmt.Errorf("peer %s declared in PeerOrder but missing from PeersByID", id)
+			}
+			// The peer's spec is taken from Conversation.Peers when present;
+			// fall back to legacy PeerA/PeerB for the "a"/"b" ids.
+			spec := b.specForPeerID(conv, id)
+			if err := t.Start(ctx, spec, b.deps.Bus, conv.ID, model.PeerSlot(id)); err != nil {
+				b.stopPeerIDs(started)
+				return fmt.Errorf("peer %s start: %w", id, err)
+			}
+			started = append(started, id)
+		}
+		return nil
+	}
+	// Legacy 2-peer path.
+	if err := b.deps.PeerA.Start(ctx, conv.PeerA, b.deps.Bus, conv.ID, model.PeerSlotA); err != nil {
+		return fmt.Errorf("peer A start: %w", err)
+	}
+	if err := b.deps.PeerB.Start(ctx, conv.PeerB, b.deps.Bus, conv.ID, model.PeerSlotB); err != nil {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = b.deps.PeerA.Stop(stopCtx, time.Second)
+		stopCancel()
+		return fmt.Errorf("peer B start: %w", err)
+	}
+	return nil
+}
+
+// stopAllPeers stops every started peer transport. In legacy mode it
+// stops PeerA and PeerB; in N-peer mode it iterates PeersByID.
+func (b *Broker) stopAllPeers() {
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stopCancel()
+	if len(b.deps.PeersByID) > 0 {
+		for _, id := range b.deps.PeerOrder {
+			if t, ok := b.deps.PeersByID[id]; ok {
+				_ = t.Stop(stopCtx, time.Second)
+			}
+		}
+		return
+	}
+	_ = b.deps.PeerA.Stop(stopCtx, time.Second)
+	_ = b.deps.PeerB.Stop(stopCtx, time.Second)
+}
+
+func (b *Broker) stopPeerIDs(ids []model.PeerID) {
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stopCancel()
+	for _, id := range ids {
+		if t, ok := b.deps.PeersByID[id]; ok {
+			_ = t.Stop(stopCtx, time.Second)
+		}
+	}
+}
+
+// specForPeerID returns the PeerSpec for the named peer id. v2 conversations
+// carry it in Conversation.Peers; legacy 2-peer conversations are looked up
+// via the PeerA/PeerB slots.
+func (b *Broker) specForPeerID(conv model.Conversation, id model.PeerID) model.PeerSpec {
+	for _, p := range conv.Peers {
+		if p.ID == id {
+			return p.Spec
+		}
+	}
+	if id == "a" {
+		return conv.PeerA
+	}
+	if id == "b" {
+		return conv.PeerB
+	}
+	return model.PeerSpec{}
 }
 
 func (b *Broker) publishTurn(ctx context.Context, turn model.ConversationTurn) error {
