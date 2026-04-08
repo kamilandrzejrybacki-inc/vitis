@@ -209,10 +209,16 @@ func ConverseCommand(ctx context.Context, args []string, stdout, stderr io.Write
 	}
 
 	res, err := br.Run(runCtx)
-	// Cancel runCtx explicitly so the stream goroutine exits promptly, then
-	// wait for it to finish before writing the final result to stdout.
-	runCancel()
+	// P2-3: do NOT cancel runCtx here. The stream goroutine reads from a
+	// bus subscription channel that closes when the bus itself closes
+	// (deferred above). Cancelling runCtx here would race the goroutine
+	// against the final published turn — the goroutine would exit on
+	// ctx.Done() before draining the last message. Instead, close the bus
+	// explicitly to drain the channel, then wait for the goroutine, then
+	// release runCtx.
+	_ = b.Close()
 	streamWg.Wait()
+	runCancel()
 
 	if err != nil {
 		fmt.Fprintf(stderr, "converse: broker error: %v\n", err)
@@ -254,6 +260,12 @@ func converseFirstNonEmpty(values ...string) string {
 	return ""
 }
 
+// streamTurnsTo subscribes to the conversation's turn topic and writes each
+// turn as JSONL to w. It exits ONLY when the bus subscription channel
+// closes (which happens when the bus itself closes). It deliberately does
+// NOT react to ctx cancellation: the caller is responsible for closing the
+// bus first, then waiting for this goroutine, so the very last turn is
+// always drained.
 func streamTurnsTo(ctx context.Context, b bus.Bus, conversationID string, w io.Writer) {
 	sub, cancel, err := b.Subscribe(ctx, bus.TopicTurn(conversationID))
 	if err != nil {
@@ -261,19 +273,11 @@ func streamTurnsTo(ctx context.Context, b bus.Bus, conversationID string, w io.W
 	}
 	defer cancel()
 	enc := json.NewEncoder(w)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg, open := <-sub:
-			if !open {
-				return
-			}
-			var turn model.ConversationTurn
-			if uerr := json.Unmarshal(msg.Payload, &turn); uerr != nil {
-				continue
-			}
-			_ = enc.Encode(turn)
+	for msg := range sub {
+		var turn model.ConversationTurn
+		if uerr := json.Unmarshal(msg.Payload, &turn); uerr != nil {
+			continue
 		}
+		_ = enc.Encode(turn)
 	}
 }

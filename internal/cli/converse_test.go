@@ -5,11 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/clank/internal/bus/inproc"
 	"github.com/kamilandrzejrybacki-inc/clank/internal/conversation"
+	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
 )
 
 func TestConverseRequiresPeers(t *testing.T) {
@@ -74,4 +79,66 @@ func decodeFinalResult(t *testing.T, raw string) conversation.FinalResult {
 	var res conversation.FinalResult
 	require.NoError(t, dec.Decode(&res))
 	return res
+}
+
+// P2-3 regression: streamTurnsTo must drain every published turn before
+// exiting. The contract is: caller closes the bus, then waits on the
+// goroutine; the goroutine must read the closed-channel sentinel after
+// emitting every queued message, NOT exit early on ctx.Done.
+func TestStreamTurnsToDrainsAllPublishedTurns(t *testing.T) {
+	b := inproc.New()
+	conversationID := "conv-stream-test"
+	var out bytes.Buffer
+
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Subscribe BEFORE publishing so we don't lose any turns to the
+	// no-buffered-subscribers branch.
+	subReady := make(chan struct{})
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// We can't easily synchronise the subscribe inside the helper, so
+		// just signal once we begin.
+		close(subReady)
+		streamTurnsTo(ctx, b, conversationID, &out)
+	}()
+	<-subReady
+	// Tiny pause to ensure the subscribe inside streamTurnsTo lands before
+	// we publish.
+	time.Sleep(10 * time.Millisecond)
+
+	// Publish three turns.
+	for i := 1; i <= 3; i++ {
+		turn := model.ConversationTurn{
+			ConversationID: conversationID,
+			Index:          i,
+			From:           model.PeerSlotA,
+			Response:       "reply " + string(rune('0'+i)),
+		}
+		payload, _ := json.Marshal(turn)
+		require.NoError(t, b.Publish(ctx, bus.TopicTurn(conversationID), bus.BusMessage{
+			ConversationID: conversationID,
+			Topic:          bus.TopicTurn(conversationID),
+			Kind:           bus.KindTurn,
+			Payload:        payload,
+			Timestamp:      time.Now(),
+		}))
+	}
+
+	// Now close the bus. The streamTurnsTo goroutine should drain the
+	// remaining buffered turns AND THEN exit because the subscription
+	// channel closes.
+	require.NoError(t, b.Close())
+	wg.Wait()
+
+	got := out.String()
+	require.Contains(t, got, `"index":1`)
+	require.Contains(t, got, `"index":2`)
+	require.Contains(t, got, `"index":3`)
+	require.Contains(t, got, "reply 1")
+	require.Contains(t, got, "reply 2")
+	require.Contains(t, got, "reply 3")
 }
