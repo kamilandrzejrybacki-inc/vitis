@@ -96,6 +96,39 @@ func TestSentinelStripFromResponse(t *testing.T) {
 	require.Equal(t, "before<<END>>after", StripSentinel("before<<END>>after", "<<END>>"))
 }
 
+// P2-2 regression: sentinel match must ignore both leading AND trailing
+// whitespace on the line. Previously TrimRight only stripped suffixes, so
+// "  <<END>>" or "\t<<END>>" silently failed to terminate.
+func TestSentinelMatchIgnoresLeadingWhitespace(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"plain", "<<END>>", true},
+		{"leading spaces", "  <<END>>", true},
+		{"leading tab", "\t<<END>>", true},
+		{"trailing spaces", "<<END>>   ", true},
+		{"both", "  <<END>>  ", true},
+		{"in line with prefix", "before\n  <<END>>", true},
+		{"trailing CR", "<<END>>\r", true},
+		{"mid line", "x <<END>> y", false},
+		{"absent", "no token here", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, containsOnOwnLine(tc.body, "<<END>>"))
+		})
+	}
+}
+
+// P2-2 regression: StripSentinel must also ignore leading whitespace.
+func TestStripSentinelIgnoresLeadingWhitespace(t *testing.T) {
+	require.Equal(t, "I'm done.", StripSentinel("I'm done.\n  <<END>>", "<<END>>"))
+	require.Equal(t, "I'm done.", StripSentinel("I'm done.\n\t<<END>>", "<<END>>"))
+	require.Equal(t, "I'm done.", StripSentinel("I'm done.\n  <<END>>  ", "<<END>>"))
+}
+
 func TestSentinelMidLineDoesNotFire(t *testing.T) {
 	b := inproc.New()
 	defer b.Close()

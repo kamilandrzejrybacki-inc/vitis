@@ -125,7 +125,7 @@ func containsOnOwnLine(s, token string) bool {
 		return false
 	}
 	for _, line := range strings.Split(s, "\n") {
-		if strings.TrimRight(line, "\r\t ") == token {
+		if strings.TrimSpace(line) == token {
 			return true
 		}
 	}
@@ -143,7 +143,7 @@ func StripSentinel(response, token string) string {
 	lines := strings.Split(response, "\n")
 	var out []string
 	for _, line := range lines {
-		if strings.TrimRight(line, "\r\t ") == token {
+		if strings.TrimSpace(line) == token {
 			// Stop here; strip the sentinel and everything after.
 			break
 		}
