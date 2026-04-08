@@ -2,6 +2,7 @@ package policy
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
@@ -28,6 +29,20 @@ var (
 // parseNextTrailer returns the id captured from a <<NEXT: id>> trailer on
 // the last non-empty line of reply. <<END>> on the last non-empty line
 // returns nil so the orchestrator's sentinel path handles it.
+//
+// The return type is *model.PeerID (rather than the more idiomatic
+// (model.PeerID, bool) ok-pair) because callers need to distinguish three
+// distinct states:
+//
+//  1. no trailer at all                 -> return nil
+//  2. trailer present, id unknown/self  -> return &id so AddressedPolicy
+//                                          can record NextIDParsed on the
+//                                          turn for observability
+//  3. trailer present, id valid         -> return &id; caller verifies
+//                                          membership and non-self
+//
+// A (PeerID, bool) pair would collapse cases 1 and 2 without a second
+// sentinel field.
 func parseNextTrailer(reply string) *model.PeerID {
 	lines := strings.Split(reply, "\n")
 	var last string
@@ -55,7 +70,7 @@ func parseNextTrailer(reply string) *model.PeerID {
 // Next implements TurnPolicy.
 func (p *AddressedPolicy) Next(current model.PeerID, reply string, peers []model.PeerID) Decision {
 	parsed := parseNextTrailer(reply)
-	if parsed != nil && *parsed != current && contains(peers, *parsed) {
+	if parsed != nil && *parsed != current && slices.Contains(peers, *parsed) {
 		return Decision{Next: *parsed, Parsed: parsed, FallbackUsed: false}
 	}
 	return Decision{
@@ -63,13 +78,4 @@ func (p *AddressedPolicy) Next(current model.PeerID, reply string, peers []model
 		Parsed:       parsed,
 		FallbackUsed: true,
 	}
-}
-
-func contains(peers []model.PeerID, id model.PeerID) bool {
-	for _, p := range peers {
-		if p == id {
-			return true
-		}
-	}
-	return false
 }
