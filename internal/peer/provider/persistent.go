@@ -23,6 +23,61 @@ import (
 // returns a buffer overflow error so the broker can finalize gracefully.
 const maxBufferBytes = 64 << 20 // 64 MiB
 
+// findLineAnchoredMarker returns the byte offset of the first occurrence of
+// markerBytes that appears on its own line in buf, or -1 if no such occurrence
+// exists. "On its own line" means: the marker is preceded by start-of-buffer
+// or a newline (with only horizontal whitespace in between), and followed by
+// end-of-buffer or a newline (with only horizontal whitespace in between).
+//
+// This exists because the envelope body includes a "When you finish your
+// reply, output the token <MARKER> on its own line." instruction, and PTYs
+// in canonical mode echo input back to output. A naive substring match
+// would find the marker INSIDE the echoed envelope (mid-line) and return
+// the echoed bytes as the "response", silently dropping the actual peer
+// reply that arrives next. Anchoring to a full line prevents the false
+// positive while still matching the marker as the peer is instructed to
+// emit it (on its own line).
+func findLineAnchoredMarker(buf, markerBytes []byte) int {
+	if len(markerBytes) == 0 {
+		return -1
+	}
+	offset := 0
+	for {
+		rel := bytes.Index(buf[offset:], markerBytes)
+		if rel < 0 {
+			return -1
+		}
+		absIdx := offset + rel
+		// Check that everything between the previous newline (or start of
+		// buffer) and absIdx is whitespace.
+		lineStart := absIdx
+		for lineStart > 0 && buf[lineStart-1] != '\n' {
+			lineStart--
+		}
+		// Check that everything between absIdx+len(markerBytes) and the next
+		// newline (or end of buffer) is whitespace.
+		lineEnd := absIdx + len(markerBytes)
+		for lineEnd < len(buf) && buf[lineEnd] != '\n' {
+			lineEnd++
+		}
+		if isHorizontalWhitespace(buf[lineStart:absIdx]) && isHorizontalWhitespace(buf[absIdx+len(markerBytes):lineEnd]) {
+			return absIdx
+		}
+		// Mid-line false positive — skip past this occurrence and keep
+		// searching.
+		offset = absIdx + len(markerBytes)
+	}
+}
+
+func isHorizontalWhitespace(b []byte) bool {
+	for _, c := range b {
+		if c != ' ' && c != '\t' && c != '\r' {
+			return false
+		}
+	}
+	return true
+}
+
 // rawPTYProcess is the narrow view of terminal.PseudoTerminalProcess that
 // PersistentProcess depends on. Defining it locally lets the wrapper be
 // unit-tested with a fakePTY without importing internal/terminal.
@@ -136,7 +191,7 @@ func (p *PersistentProcess) ConverseTurn(ctx context.Context, envelopeBytes []by
 		// Look in everything past the cursor.
 		if p.cursor < len(p.buffer) {
 			tail := p.buffer[p.cursor:]
-			if idx := bytes.Index(tail, markerBytes); idx >= 0 {
+			if idx := findLineAnchoredMarker(tail, markerBytes); idx >= 0 {
 				resp := append([]byte(nil), tail[:idx]...)
 				// P1-3: bytes that arrived AFTER the marker in the same chunk
 				// are PTY echo or shell chrome from the previous turn boundary.
