@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/conversation/policy"
 	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 	"github.com/kamilandrzejrybacki-inc/vitis/internal/peer"
 	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminator"
@@ -40,6 +41,28 @@ type BrokerDeps struct {
 	// DrainWindow overrides the control-channel drain timeout. Zero means
 	// use the default (50ms). Tests may set this to a shorter value.
 	DrainWindow time.Duration
+	// Policy selects the next speaker after each non-terminal turn. Zero
+	// value means use AddressedPolicy, which for the current 2-peer
+	// transport surface reduces to strict alternation (<<NEXT: id>>
+	// trailers are parsed if present, round-robin fallback otherwise —
+	// and round-robin over a 2-peer ["a","b"] slice IS strict alternation).
+	Policy policy.TurnPolicy
+}
+
+// legacyPeerIDs returns the declared peer order for the 2-peer transport
+// surface. When N-peer BrokerDeps are introduced in a later phase, this
+// helper will be replaced by a slice derived from Conversation.Peers.
+var legacyPeerIDs = []model.PeerID{"a", "b"}
+
+// slotFromPeerID maps a PeerID back to its legacy PeerSlot. Only "a" and
+// "b" are valid under the current 2-peer transport surface; any other id
+// is an invariant violation caught by policy.Next returning an unknown id
+// which should have been rejected by AddressedPolicy's membership check.
+func slotFromPeerID(id model.PeerID) model.PeerSlot {
+	if id == "b" {
+		return model.PeerSlotB
+	}
+	return model.PeerSlotA
 }
 
 // Broker is the conversation state machine.
@@ -49,6 +72,9 @@ type Broker struct {
 
 // NewBroker constructs a Broker from its dependencies.
 func NewBroker(deps BrokerDeps) *Broker {
+	if deps.Policy == nil {
+		deps.Policy = policy.NewAddressedPolicy()
+	}
 	return &Broker{deps: deps}
 }
 
@@ -125,6 +151,17 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 			return b.finalize(ctx, conv, turns, warnings, model.ConvError, fmt.Sprintf("peer %s deliver: %v", active, err))
 		}
 
+		// Populate the v2 peer-id fields on the turn record. The transport
+		// returns a turn whose From is already set to the slot that just
+		// replied; we mirror that into FromID and let the policy decide
+		// ToID below. The Reason is filled in after the policy runs
+		// (opener for the first turn, addressed or fallback afterward).
+		currentID := model.PeerIDFromSlot(active)
+		turn.FromID = currentID
+		if len(turns) == 0 {
+			turn.Reason = model.TurnReasonOpener
+		}
+
 		// Persist & publish the turn.
 		if err := b.deps.Store.AppendConversationTurn(ctx, turn); err != nil {
 			warnings = append(warnings, fmt.Sprintf("store append_turn: %v", err))
@@ -135,6 +172,30 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 
 		turns = append(turns, turn)
 		conv.TurnsConsumed = len(turns)
+
+		// Run the TurnPolicy NOW (before the max-turns short-circuit) so
+		// every persisted turn — including the one that hits the cap —
+		// has its ToID / Reason / fallback fields populated. The chosen
+		// next peer is only used if we actually continue the loop.
+		nextResponse := turn.Response
+		if conv.Terminator.Kind == "sentinel" {
+			nextResponse = terminator.StripSentinel(nextResponse, conv.Terminator.Sentinel)
+		}
+		decision := b.deps.Policy.Next(currentID, nextResponse, legacyPeerIDs)
+		last := &turns[len(turns)-1]
+		last.ToID = decision.Next
+		if last.Reason != model.TurnReasonOpener {
+			if decision.FallbackUsed {
+				last.Reason = model.TurnReasonFallbackRoundRobin
+			} else {
+				last.Reason = model.TurnReasonAddressed
+			}
+		}
+		last.FallbackUsed = decision.FallbackUsed
+		if decision.Parsed != nil {
+			parsed := *decision.Parsed
+			last.NextIDParsed = &parsed
+		}
 
 		// Hard max-turns cap.
 		if conv.TurnsConsumed >= conv.MaxTurns {
@@ -168,12 +229,11 @@ func (b *Broker) Run(ctx context.Context) (FinalResult, error) {
 			}
 		}
 
-		// Build next envelope for the other peer using the (possibly stripped) response.
-		nextResponse := turn.Response
-		if conv.Terminator.Kind == "sentinel" {
-			nextResponse = terminator.StripSentinel(nextResponse, conv.Terminator.Sentinel)
-		}
-		next := active.Other()
+		// Build next envelope for the next speaker. The policy decision
+		// was computed above (before the max-turns cap) so every turn
+		// record is populated consistently; here we just use the chosen
+		// next peer to drive the next iteration.
+		next := slotFromPeerID(decision.Next)
 		envelope = BuildEnvelopeTurnN(conv, conv.TurnsConsumed+1, active, nextResponse, NewMarkerToken())
 		active = next
 	}
