@@ -2,7 +2,17 @@
 # Pinned with patch-level wildcards so security fixes flow in but breaking
 # changes do not. The .github/workflows/docs.yml workflow installs from this
 # file and uses it as the pip cache key.
+#
+# pymdown-extensions: must be >=10.11 — earlier versions pass `filename=None`
+# to pygments' HtmlFormatter, which then crashes inside html.escape() with
+# `AttributeError: 'NoneType' object has no attribute 'replace'`. The bug was
+# fixed upstream in 10.11.0; we pin to the 10.x line for stability.
+#
+# Pygments: pinned to a known-good 2.18.x for the same reason — Pygments
+# tightened None handling in 2.18 which is what surfaced the pymdownx bug.
+# Keeping both pinned together avoids future surprise interactions.
 
 mkdocs-material==9.5.*
 mkdocs-awesome-pages-plugin==2.9.*
-pymdown-extensions==10.7.*
+pymdown-extensions>=10.11,<11
+Pygments>=2.18,<2.20
