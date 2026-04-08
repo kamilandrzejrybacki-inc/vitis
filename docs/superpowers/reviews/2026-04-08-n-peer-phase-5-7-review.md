@@ -55,9 +55,16 @@ Modified:
 | SR-6 | medium | broader | Per-peer log paths still use `logs/<conv_id>/peer-<slot>/...`. With N-peer ids like `alice`, `bob`, `carol`, the `<slot>` segment is now `alice`, `bob`, etc. This is bounded by the PeerID regex (`[a-z][a-z0-9_-]{0,31}`), so no path traversal is possible. But: if a future change ever loosens the PeerID regex, log path construction must be re-audited. | Document the dependency in the ADR. |
 | SR-7 | medium | `internal/testutil/mockagent/main.go` | `MOCK_NEXT_TRAILER` env var is interpolated directly into the output: `"<<NEXT: " + nextTrailer + ">>"`. There is no validation. A test that sets `MOCK_NEXT_TRAILER=' ; rm -rf'` would emit `<<NEXT:  ; rm -rf>>` as plain text — harmless because the broker only matches the regex. Test-only code, attacker-controlled-env-var threat model is null. | None. Test-only. |
 
-### codex review (deferred)
+### codex review (deferred — second failed attempt)
 
-Codex `gpt-5-codex` review dispatched but did not complete within session window. Recommendation: poll `/tmp/codex-review-p567.txt` after the session ends; if findings appear, file them as an addendum to this report.
+Codex `gpt-5-codex` review was dispatched twice in this branch's history (once per session). Both attempts exited cleanly with **no review output**:
+
+- Session 1: process ran past the session window; `--output-last-message` only writes on completion, so no findings were ever flushed.
+- Session 2: process exited (`exit code 0`) but produced only `"Reading additional input from stdin..."` and 39 bytes of output. The `codex exec` invocation appears to expect stdin even when given a positional prompt argument under non-tty redirection (`2>&1 | tail -100` confuses it).
+
+Workaround for next attempt: invoke `codex exec` directly in an interactive shell, OR write the prompt to a file and pipe it via `< prompt.txt`, OR use `--prompt @prompt.txt` if the CLI supports it.
+
+Recommendation: re-run manually after this session ends. If findings appear, file them as an addendum to this report.
 
 ## Actionable work items
 
