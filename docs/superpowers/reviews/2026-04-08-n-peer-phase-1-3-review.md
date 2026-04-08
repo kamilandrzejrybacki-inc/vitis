@@ -79,3 +79,25 @@ Deferred to later sessions (logged as follow-up):
 - `go vet ./...` — clean
 - `go test ./...` — 437 passed, 1 failed (pre-existing `TestRunHappyPath`, unrelated)
 - New code test coverage — implicit via exhaustive table tests; no explicit `go test -cover` snapshot captured in this session
+
+## Follow-up session updates
+
+### 2026-04-08 continuation — Phase 4, PTY-glyph fix, Codex review attempt
+
+After the initial report was written, the session continued autonomously and made the following changes:
+
+- **Phase 4 (broker delegates to TurnPolicy) — DONE.** `internal/conversation/broker.go` now calls `policy.TurnPolicy.Next()` immediately after each turn (before the max-turns short-circuit, so the cap-hit turn is recorded with the same enriched fields as every other turn). It populates `FromID`, `ToID`, `Reason`, `FallbackUsed`, `NextIDParsed` on every turn record. For the 2-peer transport surface, `AddressedPolicy`'s round-robin fallback over `["a","b"]` is equivalent to strict alternation when replies carry no trailer, so all existing broker tests stay green unchanged.
+
+  **Bug caught during TDD:** the first implementation placed the policy call AFTER the max-turns check, so the cap-hit turn's `Reason`/`ToID`/`FallbackUsed` were never set. A new test (`TestBrokerPopulatesPeerIDFieldsOn2PeerRun`) caught it immediately; the fix moved the policy call up.
+
+- **Policy package moved.** `internal/orchestrator/policy/` → `internal/conversation/policy/`. The package was misplaced in the original plan; the turn loop lives in `internal/conversation`, not `internal/orchestrator`. git mv preserved history.
+
+- **Pre-existing `TestRunHappyPath` PTY-glyph flake — FIXED** (was logged as D3). `internal/adapter/claudecode/extract.go` now strips lines starting with `❯` (U+276F, heavy right-pointing angle quotation mark) in addition to `>` and `›`. This was unrelated to N-peer work but cleaned up as a drive-by since the fix was a single line and the test failure was a distraction from the new code.
+
+- **Codex review attempted.** Installed Codex CLI is 0.118.0, authenticated. A review pass was dispatched twice: (1) via the `codex:codex-rescue` Agent subagent type, which returned "task running in background" but the output channel was not accessible from this session (no `SendMessage` tool loaded to poll the agent); (2) directly via `codex exec --model gpt-5-codex` as a background shell command. The direct invocation was still running at the end of the session. Any findings from either invocation will land in a follow-up review document.
+
+### Updated gate status
+
+- `go build ./...` — clean
+- `go vet ./...` — clean
+- `go test ./...` — 473 passed, 0 failed (first fully-green session in the branch history)
