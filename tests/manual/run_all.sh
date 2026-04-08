@@ -49,6 +49,7 @@ TESTS=(
   "10 10_converse_cross_provider.sh      real"
   "11 11_logs_and_peek.sh                mock"
   "12 12_security_path_traversal.sh      mock"
+  "13 13_converse_portkey.sh             real"
 )
 
 PASS=()

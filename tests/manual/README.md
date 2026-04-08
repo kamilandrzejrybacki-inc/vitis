@@ -41,6 +41,7 @@ chmod +x tests/manual/*.sh
 | 10 | `10_converse_cross_provider.sh`     | both | A2A claude ↔ codex (the canonical cross-provider demo) |
 | 11 | `11_logs_and_peek.sh`               | no | file-store persistence shape, file permissions (0600), `peek` for both single-shot and conversation logs |
 | 12 | `12_security_path_traversal.sh`    | no | path-traversal hardening (`--working-directory` / `--log-path`), `env_KEY` allowlist enforcement (LD_PRELOAD / CLANK_CLAUDE_ARGS dropped) |
+| 13 | `13_converse_portkey.sh`           | portkey | A2A end-to-end via [portkeyagent](https://github.com/kamilrybacki/portkeyagent) → Portkey gateway → free LLM. Auto-skips if portkeyagent or `PORTKEY_API_KEY` is missing. |
 
 ## Real-provider tests (08, 09, 10)
 
@@ -62,6 +63,32 @@ Cap the cost on a real run:
 ```bash
 CLANK_MANUAL_MAX_TURNS=2 ./tests/manual/08_converse_real_claude.sh
 ```
+
+## Free-LLM testing via Portkey (script 13)
+
+Script `13_converse_portkey.sh` runs a real A2A conversation through clank
+but routes the LLM calls via the [portkeyagent](https://github.com/kamilrybacki/portkeyagent)
+binary, which fronts the [Portkey](https://portkey.ai) gateway. This lets
+you exercise the full multi-turn marker-injection protocol against an
+actual model without spending Anthropic / OpenAI quota.
+
+Setup once:
+
+```bash
+go install github.com/kamilrybacki/portkeyagent@latest
+export PORTKEY_API_KEY=pk-xxxxx
+export PORTKEY_VIRTUAL_KEY=openai-free-tier  # optional
+export PORTKEY_MODEL=gpt-4o-mini             # optional
+```
+
+Then:
+
+```bash
+./tests/manual/13_converse_portkey.sh
+```
+
+The script auto-skips if `portkeyagent` is not on `PATH` or `PORTKEY_API_KEY`
+is unset, so it's safe to leave in `run_all.sh`.
 
 ### Known limitation: real codex multi-turn
 
