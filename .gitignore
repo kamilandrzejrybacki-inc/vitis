@@ -2,3 +2,4 @@ logs/
 dist/
 bin/
 clank
+tests/manual/.build/
