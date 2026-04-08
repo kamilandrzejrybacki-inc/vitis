@@ -82,6 +82,13 @@ func TopicEnvelopeIn(conversationID string, slot model.PeerSlot) string {
 	return "conv/" + conversationID + "/peer-" + string(slot) + "/in"
 }
 
+// TopicEnvelopeInID returns the inbox topic for a peer identified by PeerID.
+// This is the N-peer replacement for TopicEnvelopeIn; both coexist while the
+// orchestrator migrates from slot-keyed to id-keyed routing.
+func TopicEnvelopeInID(conversationID string, peerID model.PeerID) string {
+	return "conv/" + conversationID + "/peer/" + string(peerID) + "/in"
+}
+
 // TopicTurn returns the turn fan-out topic for a conversation.
 func TopicTurn(conversationID string) string {
 	return "conv/" + conversationID + "/turn"
