@@ -1,19 +1,39 @@
-# Vitis Documentation
+---
+hide:
+  - navigation
+  - toc
+---
 
-Vitis is a local PTY orchestrator for AI agent CLIs. It drives Claude Code, Codex, and similar tools through a real terminal so you can run a single prompt and capture the response (`vitis run`) or run a structured multi-turn conversation between two agents (`vitis converse`).
+# Vitis
 
-The README at the [repository root](https://github.com/kamilandrzejrybacki-inc/vitis/blob/main/README.md) is the canonical install and quick-start doc. This site exists to give you a navigable view of the design specs, implementation plans, and review reports without cloning the repo.
+Vitis is a local orchestrator for AI agent CLIs. It runs `claude`, `codex`, and similar tools through a real terminal so you can drive them from a script the same way you would drive any other process.
 
-## What's here
+It does two things:
 
-| Section | Contents |
+- **Single-shot runs.** You send one prompt to an agent, capture its full response, and write it to a JSON report.
+- **Agent-to-agent conversations.** Two long-lived agents take turns talking to each other through a broker, with strict alternation, marker-based turn detection, and a sentinel that ends the conversation when either side decides it's done.
+
+Both modes share the same recording layer and JSON output shape, so you can `peek` a single-shot session the same way you `peek` a multi-turn conversation.
+
+## What you get
+
+| Feature | What it means in practice |
 |---|---|
-| Specs | Canonical design specs for the A2A conversation system, the v1 agent bridge, and the PTY runtime. |
-| Plans | Implementation plans, executed via subagent-driven development. |
-| Reviews | Consolidated findings from the parallel review passes. |
+| Run any prompt against Claude Code or Codex | One command, JSON out, transcript persisted to disk |
+| Two-peer conversations | Set up two agents, give them seeds, let them talk for N turns |
+| Reply-style compression | `--style caveman-full` cuts model output by roughly 60 to 75 percent without losing technical content |
+| Free-LLM testing | Point Vitis at the [portkeyagent](https://github.com/kamilrybacki/portkeyagent) shim and route conversations through Groq, Deepseek, or NVIDIA NIM via the Portkey gateway |
+| Rich diagnostics | `vitis doctor` reports provider versions and rtk hook status |
+| File-store persistence | Every session and conversation is saved as JSON plus JSONL turn logs, with 0600 permissions |
 
-## Where to start
+## Where to next
 
-If you want a working `vitis converse` against real LLMs in a few minutes, read the [README quick start](https://github.com/kamilandrzejrybacki-inc/vitis/blob/main/README.md#quick-start). If you want to understand the protocol, start with the [A2A Conversations spec](superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md). If you want to see how the foundation packages were built, the [A2A Plan 1](superpowers/plans/2026-04-07-a2a-plan-1-foundation.md) document is the canonical reference, and [A2A Plan 2](superpowers/plans/2026-04-07-a2a-plan-2-pty-cli.md) covers the PTY runtime and CLI wiring. The [review findings](superpowers/reviews/2026-04-07-a2a-review-findings.md) record what every review pass caught and how each finding was fixed.
-
-For day-to-day operation, [`tests/manual/README.md`](https://github.com/kamilandrzejrybacki-inc/vitis/blob/main/tests/manual/README.md) is the operator handbook: 15 numbered shell scripts that exercise every Vitis surface, plus the recommended setup order for the rtk, caveman, and Portkey integrations.
+| If you want to... | Read |
+|---|---|
+| Install Vitis | [Install](install.md) |
+| See it work in 5 minutes | [Quickstart](quickstart.md) |
+| Drive a single agent prompt | [Single-shot runs](usage/run.md) |
+| Drive a two-peer conversation | [Conversations](usage/converse.md) |
+| Look up a flag | [Configuration reference](reference/configuration.md) |
+| Make it cheaper and faster | [Cost and speed](usage/cost-and-speed.md) |
+| Diagnose a failing run | [Troubleshooting](troubleshooting.md) |

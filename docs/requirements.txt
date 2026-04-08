@@ -13,6 +13,5 @@
 # Keeping both pinned together avoids future surprise interactions.
 
 mkdocs-material==9.5.*
-mkdocs-awesome-pages-plugin==2.9.*
 pymdown-extensions>=10.11,<11
 Pygments>=2.18,<2.20
