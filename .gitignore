@@ -1,9 +1,59 @@
+# --- build outputs ----------------------------------------------------------
 logs/
 dist/
 bin/
 vitis
-clank
+clank          # legacy binary name kept ignored so stray builds don't resurface
 mockagent
-.codex
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# --- test artifacts ---------------------------------------------------------
 tests/manual/.build/
 tests/manual/.portkey.env
+tests/manual/.*.env
+
+# --- AI agent harnesses (per-project caches, learned skills, instructions) --
+.claude/
+.codex/
+.cursor/
+.cline/
+.windsurf/
+.aider*
+.gemini/
+.copilot/
+.github/copilot-instructions.local.md
+CLAUDE.local.md
+GEMINI.local.md
+AGENTS.local.md
+
+# --- editor / IDE -----------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.netrwhist
+nbproject/
+*.sublime-*
+
+# --- OS junk ----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.AppleDouble
+.LSOverride
+
+# --- secrets / env ----------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# --- documentation site build ----------------------------------------------
+site/
+.cache/

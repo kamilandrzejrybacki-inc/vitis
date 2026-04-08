@@ -225,6 +225,51 @@ vitis/
 | [`tests/manual/README.md`](tests/manual/README.md) | Manual test suite with 15 scripts, the rtk + caveman + portkey integration recipes |
 | [`tests/acceptance/README.md`](tests/acceptance/README.md) | Acceptance test rules for real Claude Code runs |
 
+## Dependencies & acknowledgements
+
+Vitis stands on the shoulders of several open-source projects. Where the integration is non-trivial it's documented inline; this section is the canonical credit list.
+
+### Runtime dependencies (Go modules)
+
+| Module | Used for | License |
+|---|---|---|
+| [`github.com/creack/pty`](https://github.com/creack/pty) | The pseudo-terminal that every spawned agent runs in | MIT |
+| [`github.com/stretchr/testify`](https://github.com/stretchr/testify) | Test assertions and fixtures across the unit suite | MIT |
+| [`github.com/jackc/pgx/v5`](https://github.com/jackc/pgx) | Postgres driver for the (Plan 3) conversation persistence backend | MIT |
+| Go standard library | Everything else — net/http for portkeyagent, encoding/json, os/exec, sync, context, … | BSD-3 |
+
+### Companion projects (developed alongside Vitis)
+
+| Project | Repo | What it does | License |
+|---|---|---|---|
+| **portkeyagent** | [kamilrybacki/portkeyagent](https://github.com/kamilrybacki/portkeyagent) | Tiny CLI wrapper that fronts the Portkey LLM gateway and behaves like an interactive AI agent CLI. Built specifically as a drop-in `CLANK_CLAUDE_BINARY` replacement so Vitis manual tests can run against free upstream LLMs (Groq, Deepseek, NVIDIA NIM) without burning vendor quota. | MIT |
+
+### Token-efficiency stack (third-party tools that compose with Vitis)
+
+These tools are detected and recommended by `vitis doctor` but never required. The integration is purely additive — Vitis works without any of them.
+
+| Project | Repo | What it does | License |
+|---|---|---|---|
+| **rtk** | [rtk-ai/rtk](https://github.com/rtk-ai/rtk) | "Rust Token Killer" — a CLI proxy that compresses common shell command outputs (git, ls, cat, grep, test runners, ...) by 60-90% before they reach the agent's context. Vitis detects rtk via `clank doctor` and the `tests/manual/setup_rtk.sh` helper installs the PreToolUse hook for both Claude Code and Codex. Rich `internal/cli/rtk.go` for the integration layer. | MIT |
+| **caveman** | [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) | A Claude Code skill that nudges the model toward telegraphic ("caveman") replies, cutting output tokens by ~75% while preserving full technical accuracy. The MIT-licensed canonical rules from `skills/caveman/SKILL.md` are embedded directly in `internal/conversation/style.go` so Vitis users get the compression with zero external installs via `--style caveman-{lite,full,ultra}`. Code blocks, error messages, and security warnings are explicitly preserved per the canonical rules. | MIT |
+| **Portkey AI Gateway** | [Portkey-AI/gateway](https://github.com/Portkey-AI/gateway) | Open-source LLM gateway that routes to upstream providers (Groq, OpenAI, Anthropic, NVIDIA NIM, Deepseek, ...) via a single OpenAI-compatible API. The portkeyagent companion uses it via `x-portkey-provider` to test Vitis against free LLMs. | MIT |
+
+### AI agent CLIs Vitis drives
+
+| Project | Notes |
+|---|---|
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Anthropic's official CLI for Claude. The canonical real-world peer for `vitis converse`. The `internal/adapter/claudecode` package owns the spawn spec, observer heuristics, and sidecar JSONL handling. |
+| [Codex CLI](https://github.com/openai/codex) | OpenAI's Codex command-line agent. Vitis spawns the interactive form (no `exec` subcommand) for converse mode per the [P1-1 fix](docs/superpowers/reviews/2026-04-07-a2a-review-findings.md). |
+| (Future) [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Cursor](https://cursor.com), [Cline](https://cline.bot), [Windsurf](https://codeium.com/windsurf) | Same `provider:` URI scheme; adapter implementations are pluggable. |
+
+### Inspiration & prior art
+
+- **botl** ([repo](https://github.com/kamilrybacki-inc/botl)) — The Go CLI that runs Claude Code in ephemeral Docker containers; same author, similar PTY-driving philosophy, complementary use case (Vitis is for orchestration, botl is for sandboxing).
+- **superpowers / everything-claude-code skill ecosystem** — The `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:executing-plans`, and `superpowers:subagent-driven-development` skills shaped how the entire feature was designed and built. Every spec and plan in `docs/superpowers/` came from those workflows.
+- **The viral "talk like caveman" observation** that became JuliusBrussee/caveman, and the [March 2026 paper on brevity constraints reversing performance hierarchies](https://arxiv.org/abs/2604.00025) that backs it up.
+
+If you build on Vitis or extend it, please keep the credit chain visible — every project here was the right idea at the right time.
+
 ## License
 
-(Pick one — currently unset. Recommend MIT to match the integrated tools.)
+MIT — see [`LICENSE`](LICENSE).

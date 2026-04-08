@@ -1,0 +1,114 @@
+site_name: Vitis
+site_description: Multi-turn agent-to-agent conversations through PTY-driven AI CLIs (Claude Code, Codex). Pluggable bus, sentinel/judge terminators, rtk + caveman token efficiency, Portkey routing.
+site_url: https://kamilandrzejrybacki-inc.github.io/vitis/
+repo_url: https://github.com/kamilandrzejrybacki-inc/vitis
+repo_name: kamilandrzejrybacki-inc/vitis
+edit_uri: edit/main/docs/
+
+# The README at the repo root is the landing page (mkdocs picks it up via the
+# `Home: ../README.md` nav entry below). Everything else lives under docs/.
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+
+plugins:
+  - search
+  - awesome-pages
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - meta
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 4
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.twemoji
+
+nav:
+  - Home: index.md
+  - Specs:
+    - A2A Conversations: superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md
+    - Agent Bridge (v1): superpowers/specs/2026-04-03-vitis-agent-bridge-design.md
+    - PTY Design Review: superpowers/specs/2026-04-03-vitis-pty-design-review.md
+    - v1 Implementation Plan: superpowers/specs/2026-04-03-vitis-implementation-plan.md
+  - Plans:
+    - A2A Plan 1 — Foundation: superpowers/plans/2026-04-07-a2a-plan-1-foundation.md
+    - A2A Plan 2 — PTY + CLI: superpowers/plans/2026-04-07-a2a-plan-2-pty-cli.md
+    - v1 Plan Index: superpowers/plans/2026-04-04-vitis-plan-set-index.md
+    - v1 Plan 01 — Product Boundary: superpowers/plans/2026-04-04-vitis-plan-01-product-boundary-and-spec-hardening.md
+    - v1 Plan 02 — PTY Runtime: superpowers/plans/2026-04-04-vitis-plan-02-pty-runtime-and-transcript-foundation.md
+    - v1 Plan 03 — State Detection: superpowers/plans/2026-04-04-vitis-plan-03-claude-code-state-detection-and-extraction.md
+    - v1 Plan 04 — Orchestrator: superpowers/plans/2026-04-04-vitis-plan-04-orchestrator-session-and-persistence.md
+    - v1 Plan 05 — CLI / UX: superpowers/plans/2026-04-04-vitis-plan-05-cli-and-operator-experience.md
+    - v1 Plan 06 — Test Fixtures: superpowers/plans/2026-04-04-vitis-plan-06-test-fixtures-and-acceptance.md
+  - Reviews:
+    - A2A Review Findings (2026-04-07): superpowers/reviews/2026-04-07-a2a-review-findings.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/kamilandrzejrybacki-inc/vitis
+  generator: false
+
+copyright: Built with MkDocs Material. Source on GitHub.
