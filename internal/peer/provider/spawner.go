@@ -31,11 +31,11 @@ func RegisterTestAdapterFactory(id string, factory func(map[string]string) adapt
 // silently dropped with a stderr warning. This prevents arbitrary env
 // injection (e.g. LD_PRELOAD, CLANK_CLAUDE_ARGS).
 var allowedEnvKeys = map[string]bool{
-	"ANTHROPIC_API_KEY":    true,
-	"OPENAI_API_KEY":       true,
-	"MOCK_RESPONSE":        true,
+	"ANTHROPIC_API_KEY":     true,
+	"OPENAI_API_KEY":        true,
+	"MOCK_RESPONSE":         true,
 	"MOCK_SENTINEL_AT_TURN": true,
-	"MOCK_DELAY_MS":        true,
+	"MOCK_DELAY_MS":         true,
 }
 
 // NewTerminalSpawner returns a Spawner that resolves the URI scheme of a
@@ -44,34 +44,13 @@ var allowedEnvKeys = map[string]bool{
 func NewTerminalSpawner() Spawner {
 	rt := terminal.NewRuntime()
 	return func(ctx context.Context, spec model.PeerSpec) (rawPTYProcess, error) {
-		ad, err := resolveAdapter(spec)
+		spawnSpec, err := buildPersistentSpawnSpec(spec)
 		if err != nil {
 			return nil, err
 		}
-		cwd := spec.Options["cwd"]
-		if cwd == "" {
-			cwd, _ = os.Getwd()
-		}
-		homeDir := spec.Options["home"]
-		if homeDir == "" {
-			homeDir = os.Getenv("HOME")
-		}
-		env := map[string]string{}
-		// Forward only allowlisted env vars from peer options.
-		for k, v := range spec.Options {
-			if strings.HasPrefix(k, "env_") {
-				key := strings.TrimPrefix(k, "env_")
-				if allowedEnvKeys[key] {
-					env[key] = v
-				} else {
-					fmt.Fprintf(os.Stderr, "clank: dropping disallowed env var %q from peer options\n", key)
-				}
-			}
-		}
-		spawnSpec := ad.BuildSpawnSpec(cwd, env, homeDir, 80, 24, "")
 		// In persistent mode the prompt is delivered turn-by-turn via the
-		// PTY, never as part of argv. Force PromptInArgs to false even if
-		// the adapter set it.
+		// PTY, never as part of argv. Force PromptInArgs to false as a safety
+		// override even if a particular branch builds otherwise.
 		spawnSpec.PromptInArgs = false
 		proc, err := rt.Spawn(spawnSpec)
 		if err != nil {
@@ -81,6 +60,98 @@ func NewTerminalSpawner() Spawner {
 	}
 }
 
+// buildPersistentSpawnSpec resolves a PeerSpec into an adapter.SpawnSpec for
+// converse mode (long-lived interactive PTY). Unlike the single-shot adapter
+// path, this never includes one-shot subcommands (e.g. codex's `exec`) or
+// trailing prompt arguments — the prompt is written into the PTY turn-by-turn
+// via PersistentProcess.ConverseTurn.
+func buildPersistentSpawnSpec(spec model.PeerSpec) (adapter.SpawnSpec, error) {
+	const prefix = "provider:"
+	if !strings.HasPrefix(spec.URI, prefix) {
+		return adapter.SpawnSpec{}, fmt.Errorf("provider transport: unsupported URI scheme: %s", spec.URI)
+	}
+	id := strings.TrimPrefix(spec.URI, prefix)
+
+	cwd := spec.Options["cwd"]
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+	homeDir := spec.Options["home"]
+	if homeDir == "" {
+		homeDir = os.Getenv("HOME")
+	}
+	env := buildPeerEnv(spec.Options)
+
+	switch id {
+	case "claude-code", "claudecode":
+		// claudecode's BuildSpawnSpec is already interactive: no subcommand,
+		// no prompt argument, no PromptInArgs. Use it directly.
+		return claudecode.New().BuildSpawnSpec(cwd, env, homeDir, 80, 24, ""), nil
+	case "codex":
+		// codex's BuildSpawnSpec returns the one-shot `codex exec ...` form
+		// with the prompt as the trailing argv. For converse mode we want
+		// plain `codex` (interactive) with no `exec` subcommand and no
+		// trailing prompt arg.
+		binary, _ := codex.ResolveCommand(env)
+		var args []string
+		if m := env["CLANK_MODEL"]; m != "" {
+			args = append(args, "--model", m)
+		}
+		if re := env["CLANK_REASONING_EFFORT"]; re != "" {
+			args = append(args, "--reasoning-effort", re)
+		}
+		return adapter.SpawnSpec{
+			Command:      binary,
+			Args:         args,
+			Env:          env,
+			Cwd:          cwd,
+			HomeDir:      homeDir,
+			TerminalCols: 80,
+			TerminalRows: 24,
+			PromptInArgs: false,
+		}, nil
+	default:
+		// Test-registered factories (populated via init() in _test.go files).
+		if factory, ok := testAdapterFactories[id]; ok {
+			ad := factory(spec.Options)
+			return ad.BuildSpawnSpec(cwd, env, homeDir, 80, 24, ""), nil
+		}
+		return adapter.SpawnSpec{}, fmt.Errorf("provider transport: unknown provider %q", id)
+	}
+}
+
+// buildPeerEnv extracts the per-peer env map from PeerSpec.Options.
+//
+// Three sources are merged into the resulting map:
+//  1. allowlisted env_KEY=value opts (filtered against allowedEnvKeys)
+//  2. spec.Options["model"] -> CLANK_MODEL
+//  3. spec.Options["reasoning-effort"] -> CLANK_REASONING_EFFORT
+//
+// Anything else (including unrecognised env_ keys) is dropped with a stderr
+// warning so callers see what was filtered.
+func buildPeerEnv(options map[string]string) map[string]string {
+	env := map[string]string{}
+	for k, v := range options {
+		if strings.HasPrefix(k, "env_") {
+			key := strings.TrimPrefix(k, "env_")
+			if allowedEnvKeys[key] {
+				env[key] = v
+			} else {
+				fmt.Fprintf(os.Stderr, "clank: dropping disallowed env var %q from peer options\n", key)
+			}
+		}
+	}
+	if m := options["model"]; m != "" {
+		env["CLANK_MODEL"] = m
+	}
+	if re := options["reasoning-effort"]; re != "" {
+		env["CLANK_REASONING_EFFORT"] = re
+	}
+	return env
+}
+
+// resolveAdapter is retained for tests that exercise the URI -> adapter
+// resolution path. Production code uses buildPersistentSpawnSpec instead.
 func resolveAdapter(spec model.PeerSpec) (adapter.Adapter, error) {
 	const prefix = "provider:"
 	if !strings.HasPrefix(spec.URI, prefix) {
