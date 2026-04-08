@@ -2,7 +2,7 @@
 
 ## Happy Path
 
-- run `clank run --provider claude-code --prompt "What is 2+2?"`
+- run `vitis run --provider claude-code --prompt "What is 2+2?"`
 - expect `status: "completed"`
 - expect a non-empty response
 

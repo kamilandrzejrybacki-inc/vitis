@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus/inproc"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus/inproc"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func TestSentinelDetectsAndPublishesVerdict(t *testing.T) {

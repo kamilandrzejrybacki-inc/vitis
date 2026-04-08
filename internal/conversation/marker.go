@@ -1,5 +1,5 @@
 // Package conversation contains the broker, envelope builder, and result
-// types for clank's A2A multi-turn conversations. It depends on internal/bus
+// types for vitis's A2A multi-turn conversations. It depends on internal/bus
 // and internal/model. It does NOT depend on internal/peer to avoid an
 // import cycle (peer transports import this package).
 package conversation

@@ -7,8 +7,8 @@ package cli
 import (
 	"os"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/peer/provider"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/peer/provider"
 )
 
 func init() {

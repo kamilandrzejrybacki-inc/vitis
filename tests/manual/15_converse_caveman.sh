@@ -2,7 +2,7 @@
 # 15_converse_caveman.sh — verify caveman reply style cuts response tokens
 #
 # What it tests:
-#   - clank converse --style caveman-full passes the JuliusBrussee/caveman
+#   - vitis converse --style caveman-full passes the JuliusBrussee/caveman
 #     instructions through to the spawned agent's briefing
 #   - The model's actual replies, when caveman is active, are measurably
 #     shorter than when caveman is off
@@ -37,8 +37,8 @@ if [[ -z "${PORTKEY_API_KEY:-}" ]]; then
   skip "PORTKEY_API_KEY not set (create tests/manual/.portkey.env)"
 fi
 
-CLANK="$(clank_bin)"
-export CLANK_CLAUDE_BINARY="${PORTKEYAGENT_BIN}"
+VITIS="$(vitis_bin)"
+export VITIS_CLAUDE_BINARY="${PORTKEYAGENT_BIN}"
 export MOCK_MULTI_TURN=1
 
 # A topic the model can't fluff its way around — needs concrete tokens
@@ -50,7 +50,7 @@ run_converse() {
   local style="$1"
   local out="$2"
   printf '\n%s---%s style=%s\n' "$C_DIM" "$C_RESET" "${style}"
-  "${CLANK}" converse \
+  "${VITIS}" converse \
     --peer-a provider:claude-code \
     --peer-b provider:claude-code \
     --seed "${SEED}" \

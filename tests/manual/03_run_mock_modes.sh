@@ -2,7 +2,7 @@
 # 03_run_mock_modes.sh — exercise every MOCK_MODE the mock agent supports
 #
 # What it tests:
-#   - clank run correctly classifies different mock outcomes:
+#   - vitis run correctly classifies different mock outcomes:
 #       happy      → completed
 #       blocked    → blocked_on_input
 #       auth       → auth_required
@@ -23,9 +23,9 @@ setup_tmp_logs
 
 header "03_run_mock_modes: status classification across mock modes"
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 MOCK="$(mockagent_bin)"
-export CLANK_CLAUDE_BINARY="${MOCK}"
+export VITIS_CLAUDE_BINARY="${MOCK}"
 
 run_mode() {
   local mode="$1"
@@ -38,7 +38,7 @@ run_mode() {
     if [[ -n "${extra_env}" ]]; then
       export ${extra_env}
     fi
-    out=$( "${CLANK}" run \
+    out=$( "${VITIS}" run \
         --provider claude-code \
         --prompt "test prompt" \
         --log-path "${TEST_LOG_DIR}/${mode}" \

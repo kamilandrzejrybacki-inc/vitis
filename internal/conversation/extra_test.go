@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func TestContainsMarker_EmptyArgs(t *testing.T) {

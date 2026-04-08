@@ -8,8 +8,8 @@ package terminator
 import (
 	"context"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // Terminator is the interface implemented by sentinel and judge strategies.

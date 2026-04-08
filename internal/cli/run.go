@@ -7,15 +7,15 @@ import (
 	"io"
 	"os"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/codex"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/orchestrator"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/store"
-	filestore "github.com/kamilandrzejrybacki-inc/clank/internal/store/file"
-	pgstore "github.com/kamilandrzejrybacki-inc/clank/internal/store/postgres"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/codex"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/orchestrator"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/store"
+	filestore "github.com/kamilandrzejrybacki-inc/vitis/internal/store/file"
+	pgstore "github.com/kamilandrzejrybacki-inc/vitis/internal/store/postgres"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminal"
 )
 
 func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -42,20 +42,20 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 
 	if err := fs.Parse(args); err != nil {
 		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error())); writeErr != nil {
-			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
 		}
 		return 2
 	}
 
 	if req.LogBackend != "file" && req.LogBackend != "db" {
 		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, "log-backend must be file or db")); writeErr != nil {
-			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
 		}
 		return 2
 	}
 	if req.LogBackend == "db" && req.DatabaseURL == "" {
 		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, "database-url is required when log-backend=db")); writeErr != nil {
-			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
 		}
 		return 2
 	}
@@ -63,7 +63,7 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	store, err := buildStore(ctx, req.LogBackend, req.LogPath, req.DatabaseURL, req.DebugRaw)
 	if err != nil {
 		if writeErr := WriteJSON(stdout, ErrorResult(model.ErrorConfig, err.Error())); writeErr != nil {
-			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
 		}
 		return 2
 	}
@@ -88,7 +88,7 @@ func RunCommand(ctx context.Context, args []string, stdout, stderr io.Writer) in
 			runErr = &model.RunError{Code: model.ErrorInternal, Message: err.Error()}
 		}
 		if writeErr := WriteJSON(stdout, ErrorResult(runErr.Code, runErr.Message)); writeErr != nil {
-			fmt.Fprintf(os.Stderr, "clank: failed to write output: %v\n", writeErr)
+			fmt.Fprintf(os.Stderr, "vitis: failed to write output: %v\n", writeErr)
 		}
 		return 1
 	}

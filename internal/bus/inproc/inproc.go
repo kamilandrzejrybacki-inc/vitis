@@ -1,6 +1,6 @@
 // Package inproc is the default in-process Bus backend. It is a
 // channel-fanout broker with no external dependencies. It is the
-// correct choice for single-machine, single-process clank converse
+// correct choice for single-machine, single-process vitis converse
 // runs. For distributed peers, observability, or external judges,
 // use internal/bus/nats instead.
 package inproc
@@ -10,7 +10,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
 )
 
 // Compile-time assertion that Bus implements bus.Bus.

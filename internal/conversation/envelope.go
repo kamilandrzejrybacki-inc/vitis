@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // BuildEnvelopeTurn1 constructs the very first envelope for a peer entering

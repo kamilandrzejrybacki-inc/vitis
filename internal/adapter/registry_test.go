@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // stubAdapter is a minimal Adapter implementation for testing.

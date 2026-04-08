@@ -20,7 +20,7 @@ import (
 //   - smaller persisted conversation logs
 //   - faster model inference per turn
 //
-// clank does not execute commands itself, so rtk has no role inside clank's
+// vitis does not execute commands itself, so rtk has no role inside vitis's
 // own data path. The integration is purely at the agent layer: detect
 // whether rtk is installed and whether each spawned provider's hook config
 // references rtk, and recommend the install command if not.
@@ -35,7 +35,7 @@ type RTKStatus struct {
 
 // DetectRTK probes the local environment for an rtk install and an
 // active rtk hook for the named provider. The result is purely
-// informational — clank never refuses to operate when rtk is missing.
+// informational — vitis never refuses to operate when rtk is missing.
 func DetectRTK(provider string) RTKStatus {
 	status := RTKStatus{}
 

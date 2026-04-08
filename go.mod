@@ -1,4 +1,4 @@
-module github.com/kamilandrzejrybacki-inc/clank
+module github.com/kamilandrzejrybacki-inc/vitis
 
 go 1.24.4
 

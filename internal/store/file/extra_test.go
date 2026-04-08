@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func TestNew_EmptyRoot(t *testing.T) {

@@ -2,17 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the pure-logic foundation for clank's A2A conversation feature: data model, event bus (in-process backend), envelope/marker/briefing builders, sentinel terminator, file-store conversation persistence, and a Broker state machine that runs end-to-end against scripted mock peer transports — all with zero PTY changes and no CLI yet.
+**Goal:** Build the pure-logic foundation for vitis's A2A conversation feature: data model, event bus (in-process backend), envelope/marker/briefing builders, sentinel terminator, file-store conversation persistence, and a Broker state machine that runs end-to-end against scripted mock peer transports — all with zero PTY changes and no CLI yet.
 
-**Architecture:** New top-level packages (`internal/model` additions, `internal/bus`, `internal/bus/inproc`, `internal/conversation`, `internal/peer`, `internal/terminator`) communicate exclusively through narrow interfaces. The Broker subscribes to a `Bus` to receive turns and control messages, dispatches envelopes through `PeerTransport.Deliver`, runs `Terminator` as a bus subscriber, and persists via the existing `Store` interface (extended additively). The single-shot `clank run` path is unchanged.
+**Architecture:** New top-level packages (`internal/model` additions, `internal/bus`, `internal/bus/inproc`, `internal/conversation`, `internal/peer`, `internal/terminator`) communicate exclusively through narrow interfaces. The Broker subscribes to a `Bus` to receive turns and control messages, dispatches envelopes through `PeerTransport.Deliver`, runs `Terminator` as a bus subscriber, and persists via the existing `Store` interface (extended additively). The single-shot `vitis run` path is unchanged.
 
 **Tech Stack:** Go 1.22+, standard library only. Tests use `go test` with table-driven patterns and `-race`. No new third-party dependencies in this plan.
 
-**Scope:** Foundation only. Plan 2 adds PersistentPseudoTerminalProcess + adapter `TurnBoundaryDetector` + provider transport + `clank converse` CLI. Plans 3–5 add judge, Postgres, NATS, stdio.
+**Scope:** Foundation only. Plan 2 adds PersistentPseudoTerminalProcess + adapter `TurnBoundaryDetector` + provider transport + `vitis converse` CLI. Plans 3–5 add judge, Postgres, NATS, stdio.
 
 **Existing-codebase notes the engineer needs:**
 
-- Module path is `github.com/kamilandrzejrybacki-inc/clank`. Always import via this path.
+- Module path is `github.com/kamilandrzejrybacki-inc/vitis`. Always import via this path.
 - Existing `internal/model` types live in `result.go`, `session.go`, `turn.go`, `status.go`, `errors.go`, `events.go`. New conversation types go in a new file `conversation.go` in the same package.
 - Existing `internal/store/store.go` defines the `Store` interface; the file backend lives at `internal/store/file/file_store.go` and uses sync.Mutex + atomic JSON file writes + JSONL append. Follow the same patterns.
 - Tests use `testify` (`github.com/stretchr/testify/require` and `assert`) — already in `go.sum`. Verify by grepping existing tests.
@@ -351,7 +351,7 @@ Create `internal/bus/bus.go`:
 // runtime. The Broker, peer transports, terminators, and store all
 // communicate exclusively through Bus implementations.
 //
-// Two backends ship with clank: an in-process channel-based Bus
+// Two backends ship with vitis: an in-process channel-based Bus
 // (internal/bus/inproc, default) and a NATS-backed Bus
 // (internal/bus/nats, opt-in via --bus nats://...). Bus is the only
 // abstraction the broker depends on; swapping backends requires no
@@ -362,7 +362,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // MessageKind tags a BusMessage payload type.
@@ -410,7 +410,7 @@ type ControlMsg struct {
 
 // Bus is a topic-based publish/subscribe interface. Implementations MUST
 // honor the topic conventions documented in the A2A design spec
-// (docs/superpowers/specs/2026-04-07-clank-a2a-conversations-design.md):
+// (docs/superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md):
 //
 //   conv/<id>/peer-a/in     envelope -> peer A transport
 //   conv/<id>/peer-b/in     envelope -> peer B transport
@@ -481,7 +481,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
 )
 
 func TestPublishSubscribeFanOut(t *testing.T) {
@@ -624,7 +624,7 @@ Create `internal/bus/inproc/inproc.go`:
 ```go
 // Package inproc is the default in-process Bus backend. It is a
 // channel-fanout broker with no external dependencies. It is the
-// correct choice for single-machine, single-process clank converse
+// correct choice for single-machine, single-process vitis converse
 // runs. For distributed peers, observability, or external judges,
 // use internal/bus/nats instead.
 package inproc
@@ -634,7 +634,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
 )
 
 // Default subscriber buffer size. Tunable per-Bus via WithBufferSize.
@@ -868,7 +868,7 @@ Create `internal/conversation/marker.go`:
 
 ```go
 // Package conversation contains the broker, envelope builder, and result
-// types for clank's A2A multi-turn conversations. It depends on internal/bus
+// types for vitis's A2A multi-turn conversations. It depends on internal/bus
 // and internal/model. It does NOT depend on internal/peer to avoid an
 // import cycle (peer transports import this package).
 package conversation
@@ -961,7 +961,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // BriefingInput captures the per-peer information needed to render a turn-1
@@ -983,7 +983,7 @@ type BriefingInput struct {
 // a peer's first envelope. Pure function; no side effects.
 func RenderBriefing(in BriefingInput) string {
 	var b strings.Builder
-	b.WriteString("You are participating in a multi-turn conversation with another AI agent through Clank.\n")
+	b.WriteString("You are participating in a multi-turn conversation with another AI agent through Vitis.\n")
 	b.WriteString("The other agent's messages will be delivered to you as plain text wrapped in a header\n")
 	b.WriteString("line indicating the turn number and sender. You should reply as if speaking to a\n")
 	b.WriteString("collaborator.\n\n")
@@ -1044,7 +1044,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func TestBuildEnvelopeTurn1IncludesBriefing(t *testing.T) {
@@ -1130,7 +1130,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // BuildEnvelopeTurn1 constructs the very first envelope for a peer entering
@@ -1228,9 +1228,9 @@ Create `internal/conversation/result.go`:
 ```go
 package conversation
 
-import "github.com/kamilandrzejrybacki-inc/clank/internal/model"
+import "github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 
-// FinalResult is the JSON shape returned by `clank converse` after a
+// FinalResult is the JSON shape returned by `vitis converse` after a
 // conversation reaches a terminal status. It bundles the conversation
 // summary, the full turn log, a human-readable terminator note, and any
 // warnings collected during the run.
@@ -1273,7 +1273,7 @@ Create `internal/peer/transport.go`:
 // broker. Concrete implementations live in subpackages:
 //
 //   internal/peer/provider     - local persistent PTY peer (Plan 2)
-//   internal/peer/clankremote  - remote clank peer over the bus (Plan 4)
+//   internal/peer/clankremote  - remote vitis peer over the bus (Plan 4)
 //   internal/peer/stdio        - this process's stdin/stdout (Plan 5)
 //   internal/peer/mock         - scripted in-memory transport for tests
 //
@@ -1285,8 +1285,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // PeerTransport is the broker's view of a participant in a conversation.
@@ -1327,8 +1327,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // Script is the canned exchange this mock will execute. Responses are
@@ -1461,9 +1461,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus/inproc"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus/inproc"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func TestSentinelDetectsAndPublishesVerdict(t *testing.T) {
@@ -1570,8 +1570,8 @@ package terminator
 import (
 	"context"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // Terminator is the interface implemented by sentinel and judge strategies.
@@ -1594,8 +1594,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 const defaultSentinel = "<<END>>"
@@ -1751,7 +1751,7 @@ package store
 import (
 	"context"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 type Store interface {
@@ -1803,7 +1803,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func newTestStore(t *testing.T) *Store {
@@ -2044,10 +2044,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus/inproc"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/peer/mock"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminator"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus/inproc"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/peer/mock"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminator"
 )
 
 type discardStore struct{}
@@ -2227,10 +2227,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/peer"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminator"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/peer"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminator"
 )
 
 // ConversationStore is the narrow store interface the broker depends on.
@@ -2509,7 +2509,7 @@ Walking the spec section by section:
 | §4 Peer transport | PeerTransport interface + mock impl. Real provider/clankremote/stdio in Plans 2/4/5 | Plans 2/4/5 |
 | §5 Broker | Strict alternation, hard max-turns, sentinel termination via real Terminator, error/cancel/crash control draining, finalize semantics | — |
 | §6 Bus | Bus interface + inproc backend; NATS in Plan 4 | Plan 4 |
-| §7 CLI | NOT in Plan 1 — Plan 2 ships `clank converse` | Plan 2 |
+| §7 CLI | NOT in Plan 1 — Plan 2 ships `vitis converse` | Plan 2 |
 | §8 Project layout | All M1 directories created except `peer/provider`, `peer/clankremote`, `peer/stdio`, `terminator/judge`, `bus/nats`, `cli/converse*`, `terminal/persistent` | Plans 2/3/4/5 |
 | §9 Error model | ConvError, ConvPeerCrashed, ConvPeerBlocked, ConvInterrupted, ConvMaxTurnsHit, ConvCompletedSentinel all reachable in broker; warnings collected | — |
 | §10 Testing | Unit + integration via mock peers; full race-detector suite green | Real PTY integration tests in Plan 2 |

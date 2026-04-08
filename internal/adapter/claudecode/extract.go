@@ -3,7 +3,7 @@ package claudecode
 import (
 	"strings"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
 )
 
 func (a *Adapter) ExtractResponse(_ []byte, normalizedTranscript string) adapter.ExtractionResult {

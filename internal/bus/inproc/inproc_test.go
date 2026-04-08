@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
 )
 
 func TestPublishSubscribeFanOut(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"flag"
 	"io"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func PeekCommand(ctx context.Context, args []string, stdout, stderr io.Writer) int {

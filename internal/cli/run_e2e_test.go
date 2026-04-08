@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/cli"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/cli"
 )
 
 // findRepoRoot walks up from the current directory until it finds go.mod.
@@ -32,17 +32,17 @@ func findRepoRoot(t *testing.T) string {
 	}
 }
 
-// setupMockEnv creates a temp directory with a clank.env file configured for
+// setupMockEnv creates a temp directory with a vitis.env file configured for
 // the given mockagent mode and response string. It returns the tempDir and the
 // absolute path to the env file.
 func setupMockEnv(t *testing.T, mode, response string) (tempDir, envFile string) {
 	t.Helper()
 	tempDir = t.TempDir()
 	envBody := fmt.Sprintf(
-		"CLANK_CLAUDE_BINARY=go\nCLANK_CLAUDE_ARGS=run ./internal/testutil/mockagent\nMOCK_MODE=%s\nMOCK_RESPONSE=%s",
+		"VITIS_CLAUDE_BINARY=go\nVITIS_CLAUDE_ARGS=run ./internal/testutil/mockagent\nMOCK_MODE=%s\nMOCK_RESPONSE=%s",
 		mode, response,
 	)
-	envFile = filepath.Join(tempDir, "clank.env")
+	envFile = filepath.Join(tempDir, "vitis.env")
 	if err := os.WriteFile(envFile, []byte(envBody), 0o600); err != nil {
 		t.Fatalf("write env file: %v", err)
 	}

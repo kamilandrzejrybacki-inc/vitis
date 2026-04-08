@@ -56,7 +56,7 @@ func TestLookPath_Found(t *testing.T) {
 }
 
 func TestLookPath_NotFound(t *testing.T) {
-	if _, err := LookPath("clank-totally-nonexistent-binary-zzz"); err == nil {
+	if _, err := LookPath("vitis-totally-nonexistent-binary-zzz"); err == nil {
 		t.Error("expected error for nonexistent binary")
 	}
 }

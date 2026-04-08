@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/peer"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/peer"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminal"
 )
 
 // Compile-time assertion that Transport implements peer.PeerTransport.

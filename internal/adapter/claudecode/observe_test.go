@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func loadFixture(t *testing.T, name string) string {

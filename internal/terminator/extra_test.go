@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus/inproc"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus/inproc"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func TestNewSentinel_EmptyDefaults(t *testing.T) {

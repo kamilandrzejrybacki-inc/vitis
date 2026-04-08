@@ -6,11 +6,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/codex"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/codex"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminal"
 )
 
 // testAdapterFactories holds test-only adapter factories registered via
@@ -29,7 +29,7 @@ func RegisterTestAdapterFactory(id string, factory func(map[string]string) adapt
 // allowedEnvKeys is the set of env var keys that may be forwarded from
 // --peer-*-opt env_KEY=val to the spawned subprocess. Any other key is
 // silently dropped with a stderr warning. This prevents arbitrary env
-// injection (e.g. LD_PRELOAD, CLANK_CLAUDE_ARGS).
+// injection (e.g. LD_PRELOAD, VITIS_CLAUDE_ARGS).
 var allowedEnvKeys = map[string]bool{
 	"ANTHROPIC_API_KEY":     true,
 	"OPENAI_API_KEY":        true,
@@ -94,10 +94,10 @@ func buildPersistentSpawnSpec(spec model.PeerSpec) (adapter.SpawnSpec, error) {
 		// trailing prompt arg.
 		binary, _ := codex.ResolveCommand(env)
 		var args []string
-		if m := env["CLANK_MODEL"]; m != "" {
+		if m := env["VITIS_MODEL"]; m != "" {
 			args = append(args, "--model", m)
 		}
-		if re := env["CLANK_REASONING_EFFORT"]; re != "" {
+		if re := env["VITIS_REASONING_EFFORT"]; re != "" {
 			args = append(args, "--reasoning-effort", re)
 		}
 		return adapter.SpawnSpec{
@@ -124,8 +124,8 @@ func buildPersistentSpawnSpec(spec model.PeerSpec) (adapter.SpawnSpec, error) {
 //
 // Three sources are merged into the resulting map:
 //  1. allowlisted env_KEY=value opts (filtered against allowedEnvKeys)
-//  2. spec.Options["model"] -> CLANK_MODEL
-//  3. spec.Options["reasoning-effort"] -> CLANK_REASONING_EFFORT
+//  2. spec.Options["model"] -> VITIS_MODEL
+//  3. spec.Options["reasoning-effort"] -> VITIS_REASONING_EFFORT
 //
 // Anything else (including unrecognised env_ keys) is dropped with a stderr
 // warning so callers see what was filtered.
@@ -137,15 +137,15 @@ func buildPeerEnv(options map[string]string) map[string]string {
 			if allowedEnvKeys[key] {
 				env[key] = v
 			} else {
-				fmt.Fprintf(os.Stderr, "clank: dropping disallowed env var %q from peer options\n", key)
+				fmt.Fprintf(os.Stderr, "vitis: dropping disallowed env var %q from peer options\n", key)
 			}
 		}
 	}
 	if m := options["model"]; m != "" {
-		env["CLANK_MODEL"] = m
+		env["VITIS_MODEL"] = m
 	}
 	if re := options["reasoning-effort"]; re != "" {
-		env["CLANK_REASONING_EFFORT"] = re
+		env["VITIS_REASONING_EFFORT"] = re
 	}
 	return env
 }

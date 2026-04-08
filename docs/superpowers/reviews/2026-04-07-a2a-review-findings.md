@@ -44,12 +44,12 @@ After dedup, **17 unique HIGH/CRITICAL findings**, **~14 MEDIUM**, and several L
 - **File:** `internal/peer/provider/spawner.go:65-86`
 - **Reviewer:** security, golang, backend
 - **Bug:** `mockProviderAdapter` is in a non-test file with no build tag. A user can pass `--peer-a provider:mock --peer-a-opt bin=/anything` to execute an arbitrary binary as a PTY peer. The `MOCK_BIN` env var is also read directly.
-- **Fix:** Move `mockProviderAdapter` and the `case "mock":` branch of `resolveAdapter` into a new file `internal/peer/provider/spawner_mock_test.go` (so it only compiles in tests), or behind a `//go:build a2a_test_mock` build tag. The CLI E2E test then needs the build-tag flag to compile. After the change, `clank converse --peer-a provider:mock` from a release binary returns "unknown provider".
+- **Fix:** Move `mockProviderAdapter` and the `case "mock":` branch of `resolveAdapter` into a new file `internal/peer/provider/spawner_mock_test.go` (so it only compiles in tests), or behind a `//go:build a2a_test_mock` build tag. The CLI E2E test then needs the build-tag flag to compile. After the change, `vitis converse --peer-a provider:mock` from a release binary returns "unknown provider".
 
-### H6 — `env_` opt prefix lets caller inject arbitrary env vars including `CLANK_CLAUDE_ARGS` / `LD_PRELOAD`
+### H6 — `env_` opt prefix lets caller inject arbitrary env vars including `VITIS_CLAUDE_ARGS` / `LD_PRELOAD`
 - **File:** `internal/peer/provider/spawner.go:36-39`
 - **Reviewer:** security
-- **Bug:** Any `--peer-a-opt env_KEY=val` is forwarded as an environment variable to the spawned subprocess. Sensitive keys (`CLANK_CLAUDE_ARGS=--dangerously-skip-permissions`, `LD_PRELOAD=/tmp/evil.so`, `CLANK_CLAUDE_BINARY=/path/to/trojan`) bypass clank's safety nets.
+- **Bug:** Any `--peer-a-opt env_KEY=val` is forwarded as an environment variable to the spawned subprocess. Sensitive keys (`VITIS_CLAUDE_ARGS=--dangerously-skip-permissions`, `LD_PRELOAD=/tmp/evil.so`, `VITIS_CLAUDE_BINARY=/path/to/trojan`) bypass vitis's safety nets.
 - **Fix:** Replace the open `env_` forwarding with an allowlist of permitted env keys. Initial allowlist: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `MOCK_RESPONSE`, `MOCK_SENTINEL_AT_TURN`, `MOCK_DELAY_MS`. Anything else is dropped with a stderr warning. Document the allowlist in the converse command help text.
 
 ### H7 — `PersistentProcess.buffer` grows without bound

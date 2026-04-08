@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
 )
 
 func collectOutput(ctx context.Context, p PseudoTerminalProcess) []byte {

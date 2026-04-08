@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 const defaultSentinel = "<<END>>"

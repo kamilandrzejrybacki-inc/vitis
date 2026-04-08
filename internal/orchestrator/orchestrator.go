@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/util"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminal"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/util"
 )
 
 func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*model.RunResult, error) {
@@ -50,10 +50,10 @@ func Run(ctx context.Context, request model.RunRequest, deps Dependencies) (*mod
 		return nil, &model.RunError{Code: model.ErrorConfig, Message: err.Error()}
 	}
 	if request.Model != "" {
-		env["CLANK_MODEL"] = request.Model
+		env["VITIS_MODEL"] = request.Model
 	}
 	if request.ReasoningEffort != "" {
-		env["CLANK_REASONING_EFFORT"] = request.ReasoningEffort
+		env["VITIS_REASONING_EFFORT"] = request.ReasoningEffort
 	}
 
 	homeDir := request.HomeDir

@@ -2,14 +2,14 @@
 # 04_converse_mock_max_turns.sh — A2A conversation hits the max-turns hard cap
 #
 # What it tests:
-#   - clank converse spawns two mock agents
+#   - vitis converse spawns two mock agents
 #   - Strict A→B alternation
 #   - Conversation reaches max_turns_hit when neither peer emits the sentinel
 #   - JSON FinalResult shape is well-formed
 #
 # Note: provider:mock is only registered in test builds, so this script
 # uses two real mock-agent subprocesses driven through the production
-# claude-code provider URI by overriding CLANK_CLAUDE_BINARY. This is the
+# claude-code provider URI by overriding VITIS_CLAUDE_BINARY. This is the
 # same pattern the automated E2E tests use under the hood.
 #
 # Run: tests/manual/04_converse_mock_max_turns.sh
@@ -20,16 +20,16 @@ setup_tmp_logs
 
 header "04_converse_mock_max_turns: A2A reaches max-turns cap"
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 MOCK="$(mockagent_bin)"
-export CLANK_CLAUDE_BINARY="${MOCK}"
+export VITIS_CLAUDE_BINARY="${MOCK}"
 export MOCK_RESPONSE="ok"
 # MOCK_MULTI_TURN is set automatically by the mock provider adapter when
 # spawned in converse mode, but we need it for the claude-code wrapper too.
 export MOCK_MULTI_TURN=1
 
-info "clank converse claude-code↔claude-code, max-turns 5, no sentinel"
-out=$( "${CLANK}" converse \
+info "vitis converse claude-code↔claude-code, max-turns 5, no sentinel"
+out=$( "${VITIS}" converse \
   --peer-a provider:claude-code \
   --peer-b provider:claude-code \
   --seed "discuss mock A2A" \
@@ -38,7 +38,7 @@ out=$( "${CLANK}" converse \
   --terminator sentinel \
   --log-path "${TEST_LOG_DIR}" \
   --stream-turns=false ) || {
-    fail "clank converse exited non-zero"
+    fail "vitis converse exited non-zero"
   }
 
 print_json "${out}"

@@ -2,7 +2,7 @@
 // broker. Concrete implementations live in subpackages:
 //
 //	internal/peer/provider     - local persistent PTY peer (Plan 2)
-//	internal/peer/clankremote  - remote clank peer over the bus (Plan 4)
+//	internal/peer/clankremote  - remote vitis peer over the bus (Plan 4)
 //	internal/peer/stdio        - this process's stdin/stdout (Plan 5)
 //	internal/peer/mock         - scripted in-memory transport for tests
 //
@@ -14,8 +14,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // PeerTransport is the broker's view of a participant in a conversation.

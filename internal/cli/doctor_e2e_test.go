@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/cli"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/cli"
 )
 
 // doctorWithArgs calls DoctorCommand and returns the exit code plus captured

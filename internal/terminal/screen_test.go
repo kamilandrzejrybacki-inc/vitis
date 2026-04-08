@@ -369,9 +369,9 @@ func TestScreen_CHA_VPA(t *testing.T) {
 func TestScreen_SaveRestoreCursor(t *testing.T) {
 	scr := NewScreen(10, 0)
 	scr.Write([]byte("AB"))
-	scr.Write([]byte("\x1b[s"))      // save at (0,2)
-	scr.Write([]byte("\r\nCD"))      // move away
-	scr.Write([]byte("\x1b[uZ"))     // restore, write Z
+	scr.Write([]byte("\x1b[s"))  // save at (0,2)
+	scr.Write([]byte("\r\nCD"))  // move away
+	scr.Write([]byte("\x1b[uZ")) // restore, write Z
 	lines := scr.Lines()
 	if lines[0] != "ABZ" {
 		t.Errorf("restore cursor: expected 'ABZ', got %q", lines[0])

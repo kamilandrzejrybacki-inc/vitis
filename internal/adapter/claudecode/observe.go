@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func (a *Adapter) Observe(context adapter.CompletionContext) *adapter.TranscriptObservation {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // BriefingInput captures the per-peer information needed to render a turn-1
@@ -28,7 +28,7 @@ type BriefingInput struct {
 // a peer's first envelope. Pure function; no side effects.
 func RenderBriefing(in BriefingInput) string {
 	var b strings.Builder
-	b.WriteString("You are participating in a multi-turn conversation with another AI agent through Clank.\n")
+	b.WriteString("You are participating in a multi-turn conversation with another AI agent through Vitis.\n")
 	b.WriteString("The other agent's messages will be delivered to you as plain text wrapped in a header\n")
 	b.WriteString("line indicating the turn number and sender. You should reply as if speaking to a\n")
 	b.WriteString("collaborator.\n\n")

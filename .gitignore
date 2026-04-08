@@ -1,6 +1,6 @@
 logs/
 dist/
 bin/
-clank
+vitis
 tests/manual/.build/
 tests/manual/.portkey.env

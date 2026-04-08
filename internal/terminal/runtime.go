@@ -6,8 +6,8 @@ import (
 	"os/exec"
 
 	"github.com/creack/pty"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 type PseudoTerminalRuntime interface {

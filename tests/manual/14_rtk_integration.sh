@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# 14_rtk_integration.sh — verify rtk integration with clank-spawned agents
+# 14_rtk_integration.sh — verify rtk integration with vitis-spawned agents
 #
 # What it tests:
 #   - rtk binary is on PATH
-#   - clank doctor reports rtk as available for both claude-code and codex
-#   - clank doctor reports the rtk hook as installed for at least one
+#   - vitis doctor reports rtk as available for both claude-code and codex
+#   - vitis doctor reports the rtk hook as installed for at least one
 #     provider (a hard requirement before A2A runs benefit from rtk)
 #
-# This script does NOT actually run a conversation through rtk — clank
+# This script does NOT actually run a conversation through rtk — vitis
 # itself doesn't execute commands, so rtk is invisible to the broker. The
 # integration is verifiable only by inspecting the spawned agent's hook
-# config, which is exactly what clank doctor does.
+# config, which is exactly what vitis doctor does.
 #
 # To get end-to-end verification with real LLM token compression you would
 # need to run script 08 / 13 against a real provider and inspect the
@@ -31,14 +31,14 @@ if ! command -v rtk >/dev/null 2>&1; then
 fi
 ok "rtk on PATH: $(command -v rtk) ($(rtk --version 2>/dev/null | head -1))"
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 
 check_provider() {
   local provider="$1"
-  printf '\n%s---%s clank doctor --provider %s\n' "$C_DIM" "$C_RESET" "${provider}"
+  printf '\n%s---%s vitis doctor --provider %s\n' "$C_DIM" "$C_RESET" "${provider}"
 
   set +e
-  out=$( "${CLANK}" doctor --provider "${provider}" 2>&1 )
+  out=$( "${VITIS}" doctor --provider "${provider}" 2>&1 )
   set -e
   echo "${out}"
 

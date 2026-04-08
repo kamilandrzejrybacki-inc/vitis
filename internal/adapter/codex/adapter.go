@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
 )
 
 type Adapter struct{}
@@ -17,10 +17,10 @@ func (a *Adapter) ID() string { return "codex" }
 func (a *Adapter) BuildSpawnSpec(cwd string, env map[string]string, homeDir string, cols, rows int, prompt string) adapter.SpawnSpec {
 	command, args := ResolveCommand(env)
 	// Insert --model and --reasoning-effort before the prompt positional arg.
-	if m := env["CLANK_MODEL"]; m != "" {
+	if m := env["VITIS_MODEL"]; m != "" {
 		args = append(args, "--model", m)
 	}
-	if re := env["CLANK_REASONING_EFFORT"]; re != "" {
+	if re := env["VITIS_REASONING_EFFORT"]; re != "" {
 		args = append(args, "--reasoning-effort", re)
 	}
 	// Append the prompt as the last positional argument.
@@ -47,17 +47,17 @@ func ResolveCommand(env map[string]string) (string, []string) {
 	const defaultBinary = "codex"
 	defaultArgs := []string{"exec", "--full-auto", "--skip-git-repo-check"}
 
-	binaryOverride := firstNonEmpty(env["CLANK_CODEX_BINARY"], os.Getenv("CLANK_CODEX_BINARY"))
+	binaryOverride := firstNonEmpty(env["VITIS_CODEX_BINARY"], os.Getenv("VITIS_CODEX_BINARY"))
 	command := defaultBinary
 	if binaryOverride != "" {
 		if err := validateExecutable(binaryOverride); err != nil {
-			fmt.Fprintf(os.Stderr, "clank: ignoring CLANK_CODEX_BINARY override: %v\n", err)
+			fmt.Fprintf(os.Stderr, "vitis: ignoring VITIS_CODEX_BINARY override: %v\n", err)
 		} else {
 			command = binaryOverride
 		}
 	}
 
-	argsStr := firstNonEmpty(env["CLANK_CODEX_ARGS"], os.Getenv("CLANK_CODEX_ARGS"))
+	argsStr := firstNonEmpty(env["VITIS_CODEX_ARGS"], os.Getenv("VITIS_CODEX_ARGS"))
 	if argsStr != "" {
 		var args []string
 		for _, arg := range strings.Fields(argsStr) {
@@ -77,7 +77,7 @@ func ResolveCommand(env map[string]string) (string, []string) {
 func validateExecutable(s string) error {
 	for _, c := range []string{";", "&", "|", "$", "`", "(", ")", "\n"} {
 		if strings.Contains(s, c) {
-			return fmt.Errorf("CLANK_CODEX_BINARY contains unsafe character %q", c)
+			return fmt.Errorf("VITIS_CODEX_BINARY contains unsafe character %q", c)
 		}
 	}
 	return nil

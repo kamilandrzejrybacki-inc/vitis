@@ -2,7 +2,7 @@
 # 10_converse_cross_provider.sh — A2A with claude-code ↔ codex (cross-provider)
 #
 # What it tests: the most ambitious case — two DIFFERENT real provider
-# binaries talking to each other through clank as the broker. This is
+# binaries talking to each other through vitis as the broker. This is
 # the canonical "A2A across model families" demo.
 #
 # REQUIRES: BOTH `claude` and `codex` available. SKIPS if either missing.
@@ -25,15 +25,15 @@ header "10_converse_cross_provider: claude-code ↔ codex"
 require_claude_code
 require_codex
 
-CLANK="$(clank_bin)"
-MAX_TURNS="${CLANK_MANUAL_MAX_TURNS:-4}"
+VITIS="$(vitis_bin)"
+MAX_TURNS="${VITIS_MANUAL_MAX_TURNS:-4}"
 
 warn "this script calls BOTH Anthropic AND OpenAI APIs — significant cost"
 warn "press Ctrl-C in the next 7 seconds to abort"
 sleep 7
 
-info "clank converse claude-code (peer-a) ↔ codex (peer-b)"
-out=$( "${CLANK}" converse \
+info "vitis converse claude-code (peer-a) ↔ codex (peer-b)"
+out=$( "${VITIS}" converse \
   --peer-a provider:claude-code \
   --peer-b provider:codex \
   --seed-a "You're a Go expert. Propose a one-line goroutine pool API. End your reply with <<END>>." \
@@ -45,7 +45,7 @@ out=$( "${CLANK}" converse \
   --sentinel "<<END>>" \
   --log-path "${TEST_LOG_DIR}" \
   --stream-turns=true ) || {
-    warn "clank converse exited non-zero — see streamed output for partial results"
+    warn "vitis converse exited non-zero — see streamed output for partial results"
   }
 
 echo "${out}" | tail -120

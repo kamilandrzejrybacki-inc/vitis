@@ -3,14 +3,14 @@ package cli_test
 import (
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/util"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/util"
 )
 
 // TestDoctorDetectsMissingProvider verifies that util.LookPath returns an error
 // when the executable is not present in PATH. The doctor command relies on this
 // utility to detect unavailable providers.
 func TestDoctorDetectsMissingProvider(t *testing.T) {
-	const nonexistent = "clank-nonexistent-provider-xyz-12345"
+	const nonexistent = "vitis-nonexistent-provider-xyz-12345"
 	_, err := util.LookPath(nonexistent)
 	if err == nil {
 		t.Fatalf("expected LookPath to return an error for %q, but got nil", nonexistent)

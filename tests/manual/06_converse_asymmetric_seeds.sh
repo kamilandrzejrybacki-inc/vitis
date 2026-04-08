@@ -14,14 +14,14 @@ setup_tmp_logs
 
 header "06_converse_asymmetric_seeds: --seed-a, --seed-b, --opener"
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 MOCK="$(mockagent_bin)"
-export CLANK_CLAUDE_BINARY="${MOCK}"
+export VITIS_CLAUDE_BINARY="${MOCK}"
 export MOCK_RESPONSE="ok"
 export MOCK_MULTI_TURN=1
 
-info "clank converse with asymmetric seeds, opener=b"
-out=$( "${CLANK}" converse \
+info "vitis converse with asymmetric seeds, opener=b"
+out=$( "${VITIS}" converse \
   --peer-a provider:claude-code \
   --peer-b provider:claude-code \
   --seed-a "you are the architect" \

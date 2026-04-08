@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func makeEvent(data []byte) model.StreamEvent {

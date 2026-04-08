@@ -1,6 +1,6 @@
 package adapter
 
-import "github.com/kamilandrzejrybacki-inc/clank/internal/model"
+import "github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 
 type SpawnSpec struct {
 	Command      string

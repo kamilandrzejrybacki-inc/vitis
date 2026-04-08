@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tests/manual/lib/common.sh
 #
-# Shared helpers for clank manual test scripts. Source this from every
+# Shared helpers for vitis manual test scripts. Source this from every
 # test script:
 #
 #   #!/usr/bin/env bash
@@ -11,7 +11,7 @@
 #
 # Provides:
 #   - color helpers (header, info, ok, warn, fail, verify)
-#   - clank binary resolution (build if missing)
+#   - vitis binary resolution (build if missing)
 #   - mock-agent build helper
 #   - JSON status extraction
 #   - usage gating against real providers (skip if not installed)
@@ -53,17 +53,17 @@ MANUAL_BUILD_DIR="${MANUAL_BUILD_DIR:-${REPO_ROOT}/tests/manual/.build}"
 mkdir -p "${MANUAL_BUILD_DIR}"
 export MANUAL_BUILD_DIR
 
-# Build clank binary on demand. Always invokes `go build` because Go's build
+# Build vitis binary on demand. Always invokes `go build` because Go's build
 # cache makes the no-op case essentially free, and an mtime check on a single
 # source file misses changes anywhere else in the dependency graph (we have
-# been bitten by stale binaries comparing only cmd/clank/main.go).
-clank_bin() {
-  local bin="${MANUAL_BUILD_DIR}/clank"
-  ( cd "${REPO_ROOT}" && go build -o "${bin}" ./cmd/clank ) || fail "go build clank failed"
+# been bitten by stale binaries comparing only cmd/vitis/main.go).
+vitis_bin() {
+  local bin="${MANUAL_BUILD_DIR}/vitis"
+  ( cd "${REPO_ROOT}" && go build -o "${bin}" ./cmd/vitis ) || fail "go build vitis failed"
   echo "${bin}"
 }
 
-# Build the mock agent binary on demand. Same rationale as clank_bin.
+# Build the mock agent binary on demand. Same rationale as vitis_bin.
 mockagent_bin() {
   local bin="${MANUAL_BUILD_DIR}/mockagent"
   ( cd "${REPO_ROOT}" && go build -o "${bin}" ./internal/testutil/mockagent ) || fail "go build mockagent failed"
@@ -74,15 +74,15 @@ mockagent_bin() {
 
 # Returns 0 if a real provider binary is available on PATH (or via env override).
 have_claude_code() {
-  if [[ -n "${CLANK_CLAUDE_BINARY:-}" ]]; then
-    [[ -x "${CLANK_CLAUDE_BINARY}" ]] && return 0 || return 1
+  if [[ -n "${VITIS_CLAUDE_BINARY:-}" ]]; then
+    [[ -x "${VITIS_CLAUDE_BINARY}" ]] && return 0 || return 1
   fi
   command -v claude >/dev/null 2>&1
 }
 
 have_codex() {
-  if [[ -n "${CLANK_CODEX_BINARY:-}" ]]; then
-    [[ -x "${CLANK_CODEX_BINARY}" ]] && return 0 || return 1
+  if [[ -n "${VITIS_CODEX_BINARY:-}" ]]; then
+    [[ -x "${VITIS_CODEX_BINARY}" ]] && return 0 || return 1
   fi
   command -v codex >/dev/null 2>&1
 }
@@ -90,13 +90,13 @@ have_codex() {
 # Skip the rest of the current script unless `claude` is available.
 require_claude_code() {
   if ! have_claude_code; then
-    skip "claude binary not found on PATH (set CLANK_CLAUDE_BINARY=/path/to/claude or install Claude Code)"
+    skip "claude binary not found on PATH (set VITIS_CLAUDE_BINARY=/path/to/claude or install Claude Code)"
   fi
 }
 
 require_codex() {
   if ! have_codex; then
-    skip "codex binary not found on PATH (set CLANK_CODEX_BINARY=/path/to/codex or install Codex CLI)"
+    skip "codex binary not found on PATH (set VITIS_CODEX_BINARY=/path/to/codex or install Codex CLI)"
   fi
 }
 
@@ -179,7 +179,7 @@ print_json() {
 # ---- temp dir cleanup --------------------------------------------------------
 
 setup_tmp_logs() {
-  TEST_LOG_DIR="$(mktemp -d -t clank-manual-XXXXXX)"
+  TEST_LOG_DIR="$(mktemp -d -t vitis-manual-XXXXXX)"
   trap 'rm -rf "${TEST_LOG_DIR}"' EXIT
   export TEST_LOG_DIR
 }

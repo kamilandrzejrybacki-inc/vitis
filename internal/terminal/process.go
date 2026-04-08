@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 type process struct {

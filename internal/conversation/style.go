@@ -1,6 +1,6 @@
 package conversation
 
-// ReplyStyle controls how peer replies should be formatted. clank injects
+// ReplyStyle controls how peer replies should be formatted. vitis injects
 // style instructions into the per-peer briefing on turn 1; the model
 // follows them for the rest of the conversation. The default style
 // (StyleNormal) makes no demands on length or register.
@@ -40,7 +40,7 @@ func IsValidStyle(s string) bool {
 // styleInstructionsCavemanShared is the common ruleset injected for any
 // caveman-mode style. Verbatim adapted from
 // https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman/SKILL.md
-// (MIT licensed). Embedded here so clank ships caveman as a first-class
+// (MIT licensed). Embedded here so vitis ships caveman as a first-class
 // option without an external dependency.
 const styleInstructionsCavemanShared = `
 

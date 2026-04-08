@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	filestore "github.com/kamilandrzejrybacki-inc/clank/internal/store/file"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	filestore "github.com/kamilandrzejrybacki-inc/vitis/internal/store/file"
 )
 
 func TestPeekCommand_MissingSessionID(t *testing.T) {

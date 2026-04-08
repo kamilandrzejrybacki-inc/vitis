@@ -3,7 +3,7 @@ package provider
 import (
 	"os"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
 )
 
 func init() {
@@ -13,7 +13,7 @@ func init() {
 // mockProviderAdapter is the test-only adapter that runs the mock-agent
 // binary identified by spec.Options["bin"] (or MOCK_BIN env var). It is
 // compiled only into test binaries via the _test.go suffix, so it cannot
-// be reached from a production clank binary.
+// be reached from a production vitis binary.
 type mockProviderAdapter struct {
 	bin string
 }

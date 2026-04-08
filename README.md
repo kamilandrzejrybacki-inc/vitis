@@ -1,6 +1,6 @@
-# Clank
+# Vitis
 
-Clank is a local-first PTY orchestrator for driving Claude Code from a normal terminal session.
+Vitis is a local-first PTY orchestrator for driving Claude Code from a normal terminal session.
 
 The implementation in this repo is intentionally scoped to pure terminal control. It does not rely on headless browser automation, and it is not designed to broker or share consumer Claude subscriptions for other users.
 
@@ -19,19 +19,19 @@ This repo now includes:
 Run a prompt through the local Claude Code binary:
 
 ```bash
-go run ./cmd/clank run --prompt "summarize the latest changes"
+go run ./cmd/vitis run --prompt "summarize the latest changes"
 ```
 
 Inspect the local environment:
 
 ```bash
-go run ./cmd/clank doctor
+go run ./cmd/vitis doctor
 ```
 
 Read back the last turns from a session:
 
 ```bash
-go run ./cmd/clank peek --session-id <session-id>
+go run ./cmd/vitis peek --session-id <session-id>
 ```
 
 ## Testing
@@ -39,27 +39,27 @@ go run ./cmd/clank peek --session-id <session-id>
 Run the Go suite with writable caches:
 
 ```bash
-env GOCACHE=/tmp/clank-go-build GOMODCACHE=/tmp/clank-go-mod go test ./...
+env GOCACHE=/tmp/vitis-go-build GOMODCACHE=/tmp/vitis-go-mod go test ./...
 ```
 
 For end-to-end PTY validation without a real Claude Code session, point the adapter at the bundled mock agent:
 
 ```bash
 env \
-  GOCACHE=/tmp/clank-go-build \
-  GOMODCACHE=/tmp/clank-go-mod \
-  CLANK_CLAUDE_BINARY=go \
-  CLANK_CLAUDE_ARGS="run ./internal/testutil/mockagent" \
+  GOCACHE=/tmp/vitis-go-build \
+  GOMODCACHE=/tmp/vitis-go-mod \
+  VITIS_CLAUDE_BINARY=go \
+  VITIS_CLAUDE_ARGS="run ./internal/testutil/mockagent" \
   MOCK_RESPONSE="mock integration response" \
-  go run ./cmd/clank run --prompt "ping" --log-path /tmp/clank-logs --debug-raw
+  go run ./cmd/vitis run --prompt "ping" --log-path /tmp/vitis-logs --debug-raw
 ```
 
-`CLANK_CLAUDE_BINARY` overrides the executable used by the Claude Code adapter. `CLANK_CLAUDE_ARGS` can append static arguments as a space-separated string.
+`VITIS_CLAUDE_BINARY` overrides the executable used by the Claude Code adapter. `VITIS_CLAUDE_ARGS` can append static arguments as a space-separated string.
 
 ## Safety Boundary
 
 - Prefer local one-user operation.
-- Do not position Clank as a hosted proxy for consumer Claude accounts.
+- Do not position Vitis as a hosted proxy for consumer Claude accounts.
 - Do not auto-answer auth, permission, or rate-limit prompts.
 - Treat raw PTY bytes as the source of truth for audits and debugging.
 

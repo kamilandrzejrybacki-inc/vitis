@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/peer"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminator"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/peer"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminator"
 )
 
 // ConversationStore is the narrow store interface the broker depends on.

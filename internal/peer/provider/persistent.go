@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // maxBufferBytes is the hard cap on the PersistentProcess output buffer.

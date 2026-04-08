@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/orchestrator"
-	filestore "github.com/kamilandrzejrybacki-inc/clank/internal/store/file"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/orchestrator"
+	filestore "github.com/kamilandrzejrybacki-inc/vitis/internal/store/file"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminal"
 )
 
 // repoRoot returns the absolute path to the repository root.
@@ -46,7 +46,7 @@ func newDeps(t *testing.T, logPath string) orchestrator.Dependencies {
 // writeEnvFile writes key=value pairs to a temp file and returns its path.
 func writeEnvFile(t *testing.T, dir string, lines []string) string {
 	t.Helper()
-	path := filepath.Join(dir, "clank.env")
+	path := filepath.Join(dir, "vitis.env")
 	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
 		t.Fatalf("write env file: %v", err)
 	}
@@ -70,8 +70,8 @@ func TestIntegration_HappyPath(t *testing.T) {
 	logPath := filepath.Join(tmpDir, "logs")
 
 	envFile := writeEnvFile(t, tmpDir, []string{
-		"CLANK_CLAUDE_BINARY=go",
-		"CLANK_CLAUDE_ARGS=run ./internal/testutil/mockagent",
+		"VITIS_CLAUDE_BINARY=go",
+		"VITIS_CLAUDE_ARGS=run ./internal/testutil/mockagent",
 		"MOCK_MODE=happy",
 		"MOCK_RESPONSE=integration test response",
 	})
@@ -113,8 +113,8 @@ func TestIntegration_BlockedOnInput(t *testing.T) {
 	logPath := filepath.Join(tmpDir, "logs")
 
 	envFile := writeEnvFile(t, tmpDir, []string{
-		"CLANK_CLAUDE_BINARY=go",
-		"CLANK_CLAUDE_ARGS=run ./internal/testutil/mockagent",
+		"VITIS_CLAUDE_BINARY=go",
+		"VITIS_CLAUDE_ARGS=run ./internal/testutil/mockagent",
 		"MOCK_MODE=blocked",
 	})
 
@@ -149,8 +149,8 @@ func TestIntegration_AuthRequired(t *testing.T) {
 	logPath := filepath.Join(tmpDir, "logs")
 
 	envFile := writeEnvFile(t, tmpDir, []string{
-		"CLANK_CLAUDE_BINARY=go",
-		"CLANK_CLAUDE_ARGS=run ./internal/testutil/mockagent",
+		"VITIS_CLAUDE_BINARY=go",
+		"VITIS_CLAUDE_ARGS=run ./internal/testutil/mockagent",
 		"MOCK_MODE=auth",
 	})
 
@@ -182,8 +182,8 @@ func TestIntegration_Timeout(t *testing.T) {
 	logPath := filepath.Join(tmpDir, "logs")
 
 	envFile := writeEnvFile(t, tmpDir, []string{
-		"CLANK_CLAUDE_BINARY=go",
-		"CLANK_CLAUDE_ARGS=run ./internal/testutil/mockagent",
+		"VITIS_CLAUDE_BINARY=go",
+		"VITIS_CLAUDE_ARGS=run ./internal/testutil/mockagent",
 		"MOCK_MODE=happy",
 		"MOCK_DELAY_MS=5000",
 	})
@@ -216,8 +216,8 @@ func TestIntegration_ResultJSONSchema(t *testing.T) {
 	logPath := filepath.Join(tmpDir, "logs")
 
 	envFile := writeEnvFile(t, tmpDir, []string{
-		"CLANK_CLAUDE_BINARY=go",
-		"CLANK_CLAUDE_ARGS=run ./internal/testutil/mockagent",
+		"VITIS_CLAUDE_BINARY=go",
+		"VITIS_CLAUDE_ARGS=run ./internal/testutil/mockagent",
 		"MOCK_MODE=happy",
 		"MOCK_RESPONSE=schema check",
 	})
@@ -268,8 +268,8 @@ func TestIntegration_FileStoreRoundTrip(t *testing.T) {
 	logPath := filepath.Join(tmpDir, "logs")
 
 	envFile := writeEnvFile(t, tmpDir, []string{
-		"CLANK_CLAUDE_BINARY=go",
-		"CLANK_CLAUDE_ARGS=run ./internal/testutil/mockagent",
+		"VITIS_CLAUDE_BINARY=go",
+		"VITIS_CLAUDE_ARGS=run ./internal/testutil/mockagent",
 		"MOCK_MODE=happy",
 		"MOCK_RESPONSE=roundtrip check",
 	})

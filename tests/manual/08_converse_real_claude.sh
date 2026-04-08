@@ -2,16 +2,16 @@
 # 08_converse_real_claude.sh — A2A with real Claude Code on both sides
 #
 # What it tests:
-#   - clank converse can drive a real claude session in interactive mode
+#   - vitis converse can drive a real claude session in interactive mode
 #   - turn-end marker injection works against the real TUI
 #   - sentinel termination works in a real conversation
 #
-# REQUIRES: a working `claude` install on PATH (or CLANK_CLAUDE_BINARY set
+# REQUIRES: a working `claude` install on PATH (or VITIS_CLAUDE_BINARY set
 # to a working binary). SKIPS automatically if not available.
 #
 # This is a SLOW test (real LLM calls). Budget ~2-5 minutes per turn.
 # Run with --max-turns 4 by default to keep cost bounded; override with
-# CLANK_MANUAL_MAX_TURNS=N for longer runs.
+# VITIS_MANUAL_MAX_TURNS=N for longer runs.
 #
 # WARNING: this consumes Anthropic API credits / Pro session quota.
 #
@@ -25,15 +25,15 @@ header "08_converse_real_claude: real claude↔claude conversation"
 
 require_claude_code
 
-CLANK="$(clank_bin)"
-MAX_TURNS="${CLANK_MANUAL_MAX_TURNS:-4}"
+VITIS="$(vitis_bin)"
+MAX_TURNS="${VITIS_MANUAL_MAX_TURNS:-4}"
 
 warn "this script makes REAL Claude API calls and will consume quota"
 warn "press Ctrl-C in the next 5 seconds to abort"
 sleep 5
 
-info "clank converse claude-code ↔ claude-code, max-turns ${MAX_TURNS}"
-out=$( "${CLANK}" converse \
+info "vitis converse claude-code ↔ claude-code, max-turns ${MAX_TURNS}"
+out=$( "${VITIS}" converse \
   --peer-a provider:claude-code \
   --peer-b provider:claude-code \
   --seed-a "You are a Go expert. Briefly explain what a context.Context is. End with <<END>>." \
@@ -46,7 +46,7 @@ out=$( "${CLANK}" converse \
   --log-path "${TEST_LOG_DIR}" \
   --stream-turns=true ) || {
     print_json "${out}" || true
-    fail "clank converse exited non-zero (check stderr above)"
+    fail "vitis converse exited non-zero (check stderr above)"
   }
 
 echo "${out}" | tail -100

@@ -2,7 +2,7 @@
 // runtime. The Broker, peer transports, terminators, and store all
 // communicate exclusively through Bus implementations.
 //
-// Two backends ship with clank: an in-process channel-based Bus
+// Two backends ship with vitis: an in-process channel-based Bus
 // (internal/bus/inproc, default) and a NATS-backed Bus
 // (internal/bus/nats, opt-in via --bus nats://...). Bus is the only
 // abstraction the broker depends on; swapping backends requires no
@@ -13,7 +13,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 // MessageKind tags a BusMessage payload type.
@@ -61,7 +61,7 @@ type ControlMsg struct {
 
 // Bus is a topic-based publish/subscribe interface. Implementations MUST
 // honor the topic conventions documented in the A2A design spec
-// (docs/superpowers/specs/2026-04-07-clank-a2a-conversations-design.md):
+// (docs/superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md):
 //
 //	conv/<id>/peer-a/in     envelope -> peer A transport
 //	conv/<id>/peer-b/in     envelope -> peer B transport

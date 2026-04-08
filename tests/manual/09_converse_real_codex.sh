@@ -2,17 +2,17 @@
 # 09_converse_real_codex.sh — A2A with real Codex CLI on both sides
 #
 # What it tests:
-#   - clank converse can drive a real codex session in interactive mode
+#   - vitis converse can drive a real codex session in interactive mode
 #     (NOT `codex exec` which is one-shot — see the codex P1-1 fix)
 #   - real codex emits the marker token correctly when instructed
 #
-# REQUIRES: a working `codex` install on PATH (or CLANK_CODEX_BINARY set).
+# REQUIRES: a working `codex` install on PATH (or VITIS_CODEX_BINARY set).
 # SKIPS automatically if not available.
 #
 # WARNING: this consumes OpenAI API credits. Real LLM calls. Slow.
 #
 # KNOWN LIMITATION: real codex multi-turn through the marker-injection
-# approach is unreliable in this version of clank — sidecar JSONL support
+# approach is unreliable in this version of vitis — sidecar JSONL support
 # (Plan 2.5 in the design spec) is the proper fix. This script may hit
 # max-turns or timeout depending on whether codex emits the marker on its
 # own line.
@@ -27,16 +27,16 @@ header "09_converse_real_codex: real codex↔codex conversation"
 
 require_codex
 
-CLANK="$(clank_bin)"
-MAX_TURNS="${CLANK_MANUAL_MAX_TURNS:-3}"
+VITIS="$(vitis_bin)"
+MAX_TURNS="${VITIS_MANUAL_MAX_TURNS:-3}"
 
 warn "this script makes REAL OpenAI API calls and will consume quota"
 warn "real codex multi-turn is a KNOWN-FRAGILE area (see Plan 2.5)"
 warn "press Ctrl-C in the next 5 seconds to abort"
 sleep 5
 
-info "clank converse codex ↔ codex, max-turns ${MAX_TURNS}"
-out=$( "${CLANK}" converse \
+info "vitis converse codex ↔ codex, max-turns ${MAX_TURNS}"
+out=$( "${VITIS}" converse \
   --peer-a provider:codex \
   --peer-b provider:codex \
   --peer-a-opt model=gpt-5 \
@@ -51,7 +51,7 @@ out=$( "${CLANK}" converse \
   --log-path "${TEST_LOG_DIR}" \
   --stream-turns=true ) || {
     print_json "${out}" || true
-    warn "clank converse exited non-zero (this may be expected — see KNOWN LIMITATION above)"
+    warn "vitis converse exited non-zero (this may be expected — see KNOWN LIMITATION above)"
   }
 
 echo "${out}" | tail -100

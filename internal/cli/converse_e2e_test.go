@@ -13,15 +13,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/conversation"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/conversation"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func buildMockAgent(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "mockagent")
-	cmd := exec.Command("go", "build", "-o", bin, "github.com/kamilandrzejrybacki-inc/clank/internal/testutil/mockagent")
+	cmd := exec.Command("go", "build", "-o", bin, "github.com/kamilandrzejrybacki-inc/vitis/internal/testutil/mockagent")
 	cmd.Stderr = os.Stderr
 	require.NoError(t, cmd.Run(), "building mockagent")
 	return bin

@@ -1,6 +1,6 @@
-# Clank Manual Test Suite
+# Vitis Manual Test Suite
 
-Shell scripts that exercise clank end-to-end against the real PTY runtime, the bundled mock agent, and (optionally) real `claude` and `codex` CLIs. Each script is self-contained — sources `lib/common.sh` for shared helpers, builds the binaries it needs into `tests/manual/.build/`, and prints clear PASS / FAIL / WARN / VERIFY lines.
+Shell scripts that exercise vitis end-to-end against the real PTY runtime, the bundled mock agent, and (optionally) real `claude` and `codex` CLIs. Each script is self-contained — sources `lib/common.sh` for shared helpers, builds the binaries it needs into `tests/manual/.build/`, and prints clear PASS / FAIL / WARN / VERIFY lines.
 
 ## Quick start
 
@@ -29,8 +29,8 @@ chmod +x tests/manual/*.sh
 
 | #  | Script                              | Needs real provider? | Tests |
 |----|-------------------------------------|---|---|
-| 01 | `01_doctor.sh`                      | no | `clank doctor` exits cleanly |
-| 02 | `02_run_mock_happy.sh`              | no | single-shot `clank run` happy path + `peek` |
+| 01 | `01_doctor.sh`                      | no | `vitis doctor` exits cleanly |
+| 02 | `02_run_mock_happy.sh`              | no | single-shot `vitis run` happy path + `peek` |
 | 03 | `03_run_mock_modes.sh`              | no | observer status classification across all `MOCK_MODE` values (happy, blocked, auth, rate_limit, partial, crash, ansi) |
 | 04 | `04_converse_mock_max_turns.sh`     | no | A2A reaches `max_turns_hit` when no sentinel is emitted |
 | 05 | `05_converse_mock_sentinel.sh`      | no | sentinel terminator early-exit + sentinel stripping from forwarded envelopes |
@@ -40,14 +40,14 @@ chmod +x tests/manual/*.sh
 | 09 | `09_converse_real_codex.sh`         | codex | A2A codex ↔ codex (real LLM calls; known fragile until Plan 2.5) |
 | 10 | `10_converse_cross_provider.sh`     | both | A2A claude ↔ codex (the canonical cross-provider demo) |
 | 11 | `11_logs_and_peek.sh`               | no | file-store persistence shape, file permissions (0600), `peek` for both single-shot and conversation logs |
-| 12 | `12_security_path_traversal.sh`    | no | path-traversal hardening (`--working-directory` / `--log-path`), `env_KEY` allowlist enforcement (LD_PRELOAD / CLANK_CLAUDE_ARGS dropped) |
+| 12 | `12_security_path_traversal.sh`    | no | path-traversal hardening (`--working-directory` / `--log-path`), `env_KEY` allowlist enforcement (LD_PRELOAD / VITIS_CLAUDE_ARGS dropped) |
 | 13 | `13_converse_portkey.sh`           | portkey | A2A end-to-end via [portkeyagent](https://github.com/kamilrybacki/portkeyagent) → Portkey gateway → free LLM. Auto-skips if portkeyagent or `PORTKEY_API_KEY` is missing. |
 | 14 | `14_rtk_integration.sh`            | rtk | Verifies [rtk](https://github.com/rtk-ai/rtk) is installed and the rtk PreToolUse hook is active for at least one of the spawned providers. Auto-skips if rtk is missing. |
-| 15 | `15_converse_caveman.sh`           | portkey | Runs the same A2A conversation twice (`--style normal` then `--style caveman-ultra`) against the homelab Portkey gateway and asserts the caveman version produces measurably (>10%) shorter total response chars. Uses the [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) rules embedded directly in clank's per-peer briefing — no external skill install required. |
+| 15 | `15_converse_caveman.sh`           | portkey | Runs the same A2A conversation twice (`--style normal` then `--style caveman-ultra`) against the homelab Portkey gateway and asserts the caveman version produces measurably (>10%) shorter total response chars. Uses the [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) rules embedded directly in vitis's per-peer briefing — no external skill install required. |
 
 ## Real-provider tests (08, 09, 10)
 
-These exist to validate clank against actual `claude` and `codex` binaries. They:
+These exist to validate vitis against actual `claude` and `codex` binaries. They:
 
 - **Cost real money** (Anthropic / OpenAI quota)
 - **Take minutes** per turn
@@ -56,22 +56,22 @@ These exist to validate clank against actual `claude` and `codex` binaries. They
 Override the binary path without installing globally:
 
 ```bash
-CLANK_CLAUDE_BINARY=/opt/claude-cli/claude ./tests/manual/08_converse_real_claude.sh
-CLANK_CODEX_BINARY=/opt/codex-cli/codex   ./tests/manual/09_converse_real_codex.sh
+VITIS_CLAUDE_BINARY=/opt/claude-cli/claude ./tests/manual/08_converse_real_claude.sh
+VITIS_CODEX_BINARY=/opt/codex-cli/codex   ./tests/manual/09_converse_real_codex.sh
 ```
 
 Cap the cost on a real run:
 
 ```bash
-CLANK_MANUAL_MAX_TURNS=2 ./tests/manual/08_converse_real_claude.sh
+VITIS_MANUAL_MAX_TURNS=2 ./tests/manual/08_converse_real_claude.sh
 ```
 
 ## Token efficiency via rtk (script 14, setup_rtk.sh)
 
 [rtk](https://github.com/rtk-ai/rtk) is a CLI proxy that compresses common
 shell command outputs (git, ls, cat, grep, test runners, ...) by 60-90%
-before they reach the agent's context. clank itself doesn't execute
-commands — but the AGENTS clank spawns do, and in A2A conversations where
+before they reach the agent's context. vitis itself doesn't execute
+commands — but the AGENTS vitis spawns do, and in A2A conversations where
 two long-lived agents may run dozens of tool calls per conversation,
 having rtk hooks active for both providers translates directly into:
 
@@ -80,12 +80,12 @@ having rtk hooks active for both providers translates directly into:
 - Smaller persisted conversation logs
 - Faster model inference per turn
 
-clank's `doctor` subcommand reports rtk health for the queried provider.
+vitis's `doctor` subcommand reports rtk health for the queried provider.
 The `rtk` field in the JSON output tells you whether rtk is installed and
 whether the hook is active for that provider. Example:
 
 ```bash
-clank doctor --provider claude-code | jq .rtk
+vitis doctor --provider claude-code | jq .rtk
 {
   "available": true,
   "path": "/home/me/.local/bin/rtk",
@@ -102,7 +102,7 @@ clank doctor --provider claude-code | jq .rtk
 ```
 
 Installs rtk via Homebrew or cargo if missing, runs `rtk init -g` for
-both Claude Code and Codex, and verifies the result via clank doctor.
+both Claude Code and Codex, and verifies the result via vitis doctor.
 
 ### Verification
 
@@ -118,7 +118,7 @@ script 08 or 13.
 
 ## Reply-token compression via caveman style (script 15)
 
-clank's `--style` flag embeds the [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman)
+vitis's `--style` flag embeds the [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman)
 ruleset directly into the per-peer briefing, so every reply the spawned
 agents produce comes back ~75% shorter without losing technical content.
 This stacks with rtk:
@@ -135,13 +135,13 @@ outputs, all compounding across turns.
 ### Style flag
 
 ```bash
-clank converse --style caveman-full ...     # default caveman, drops articles, fragments
-clank converse --style caveman-lite ...     # professional but tight, keeps grammar
-clank converse --style caveman-ultra ...    # max compression, telegraphic, abbreviated
-clank converse --style normal ...           # default, no style instructions
+vitis converse --style caveman-full ...     # default caveman, drops articles, fragments
+vitis converse --style caveman-lite ...     # professional but tight, keeps grammar
+vitis converse --style caveman-ultra ...    # max compression, telegraphic, abbreviated
+vitis converse --style normal ...           # default, no style instructions
 ```
 
-The style instructions are embedded in clank itself (`internal/conversation/style.go`)
+The style instructions are embedded in vitis itself (`internal/conversation/style.go`)
 adapted from caveman's MIT-licensed `SKILL.md`. **No external install
 needed.** The instructions explicitly preserve code blocks, error
 messages, security warnings, and irreversible-action confirmations
@@ -163,7 +163,7 @@ Auto-skips if portkeyagent or `PORTKEY_API_KEY` is missing.
 
 ## Free-LLM testing via Portkey (script 13)
 
-Script `13_converse_portkey.sh` runs a real A2A conversation through clank
+Script `13_converse_portkey.sh` runs a real A2A conversation through vitis
 but routes the LLM calls via the [portkeyagent](https://github.com/kamilrybacki/portkeyagent)
 binary, which fronts the [Portkey](https://portkey.ai) gateway. This lets
 you exercise the full multi-turn marker-injection protocol against an
@@ -189,14 +189,14 @@ is unset, so it's safe to leave in `run_all.sh`.
 
 ### Known limitation: real codex multi-turn
 
-The marker-injection approach in clank Plan 2 was tuned against the line-oriented mock agent. Real `codex` is a TUI app whose interactive REPL doesn't echo the marker token reliably. Tests 09 and 10 may hit `max_turns_hit` instead of `completed_sentinel` even when the model-side conversation is going fine. This is a known gap to be addressed by **Plan 2.5** (sidecar JSONL detection per `docs/superpowers/specs/2026-04-07-clank-a2a-conversations-design.md` §4). Until then, treat 09/10 as smoke tests for "did the spawn shape work and did real bytes flow", not as functional pass/fail.
+The marker-injection approach in vitis Plan 2 was tuned against the line-oriented mock agent. Real `codex` is a TUI app whose interactive REPL doesn't echo the marker token reliably. Tests 09 and 10 may hit `max_turns_hit` instead of `completed_sentinel` even when the model-side conversation is going fine. This is a known gap to be addressed by **Plan 2.5** (sidecar JSONL detection per `docs/superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md` §4). Until then, treat 09/10 as smoke tests for "did the spawn shape work and did real bytes flow", not as functional pass/fail.
 
 ## How the mock-driven scripts work
 
-The mock-driven tests (02–07, 11, 12) work without any real LLM by overriding `CLANK_CLAUDE_BINARY` to point at the bundled `internal/testutil/mockagent` binary. The mock agent supports two modes:
+The mock-driven tests (02–07, 11, 12) work without any real LLM by overriding `VITIS_CLAUDE_BINARY` to point at the bundled `internal/testutil/mockagent` binary. The mock agent supports two modes:
 
-1. **Single-shot mode** (`MOCK_MODE=happy|blocked|auth|...`) — used by `clank run`
-2. **Multi-turn mode** (`MOCK_MULTI_TURN=1`) — used by `clank converse`. The agent loops reading envelopes, extracts the per-turn marker token from the envelope text, optionally emits `<<END>>` on a configurable turn (`MOCK_SENTINEL_AT_TURN=N`), and prints `turn N: <response>\n<marker>\n`.
+1. **Single-shot mode** (`MOCK_MODE=happy|blocked|auth|...`) — used by `vitis run`
+2. **Multi-turn mode** (`MOCK_MULTI_TURN=1`) — used by `vitis converse`. The agent loops reading envelopes, extracts the per-turn marker token from the envelope text, optionally emits `<<END>>` on a configurable turn (`MOCK_SENTINEL_AT_TURN=N`), and prints `turn N: <response>\n<marker>\n`.
 
 Both binaries are built on demand into `tests/manual/.build/` and reused across scripts.
 
@@ -205,7 +205,7 @@ Both binaries are built on demand into `tests/manual/.build/` and reused across 
 Sourced by every script. Provides:
 
 - **Color output** — `header`, `info`, `ok`, `warn`, `fail`, `verify`, `skip`
-- **Build helpers** — `clank_bin`, `mockagent_bin` (build on demand, idempotent)
+- **Build helpers** — `vitis_bin`, `mockagent_bin` (build on demand, idempotent)
 - **Provider gating** — `have_claude_code`, `have_codex`, `require_claude_code`, `require_codex` (latter two auto-`skip` the script)
 - **JSON helpers** — `json_field <json> <path>`, `assert_status`, `assert_conv_status`, `assert_nonempty_response`, `print_json`
 - **Temp dirs** — `setup_tmp_logs` registers an EXIT trap that cleans `${TEST_LOG_DIR}`

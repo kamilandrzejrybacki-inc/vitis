@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
 )
 
 func TestRuntimeSpawnFailure(t *testing.T) {

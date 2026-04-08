@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func TestResolveAdapterKnownProviders(t *testing.T) {
@@ -61,7 +61,7 @@ func TestAllowedEnvKeysFiltersDisallowed(t *testing.T) {
 	require.True(t, allowedEnvKeys["MOCK_SENTINEL_AT_TURN"], "MOCK_SENTINEL_AT_TURN must be in allowlist")
 	// And that dangerous keys are absent.
 	require.False(t, allowedEnvKeys["LD_PRELOAD"])
-	require.False(t, allowedEnvKeys["CLANK_CLAUDE_ARGS"])
+	require.False(t, allowedEnvKeys["VITIS_CLAUDE_ARGS"])
 }
 
 // P1-1 regression: codex peers in converse mode must NOT spawn `codex exec`
@@ -91,7 +91,7 @@ func TestBuildPersistentSpawnSpecClaudeCodeInteractive(t *testing.T) {
 }
 
 // P2-1 regression: per-peer model and reasoning-effort options are forwarded
-// to the spawned subprocess via CLANK_MODEL and CLANK_REASONING_EFFORT env vars.
+// to the spawned subprocess via VITIS_MODEL and VITIS_REASONING_EFFORT env vars.
 func TestBuildPersistentSpawnSpecForwardsModelAndReasoningEffort(t *testing.T) {
 	t.Run("codex with both options", func(t *testing.T) {
 		spec := model.PeerSpec{
@@ -103,8 +103,8 @@ func TestBuildPersistentSpawnSpecForwardsModelAndReasoningEffort(t *testing.T) {
 		}
 		got, err := buildPersistentSpawnSpec(spec)
 		require.NoError(t, err)
-		require.Equal(t, "gpt-5", got.Env["CLANK_MODEL"])
-		require.Equal(t, "high", got.Env["CLANK_REASONING_EFFORT"])
+		require.Equal(t, "gpt-5", got.Env["VITIS_MODEL"])
+		require.Equal(t, "high", got.Env["VITIS_REASONING_EFFORT"])
 		// codex spec also surfaces them as CLI flags.
 		require.Contains(t, got.Args, "--model")
 		require.Contains(t, got.Args, "gpt-5")
@@ -121,8 +121,8 @@ func TestBuildPersistentSpawnSpecForwardsModelAndReasoningEffort(t *testing.T) {
 		}
 		got, err := buildPersistentSpawnSpec(spec)
 		require.NoError(t, err)
-		require.Equal(t, "claude-sonnet-4-6", got.Env["CLANK_MODEL"])
-		// claudecode adapter reads CLANK_MODEL and emits --model.
+		require.Equal(t, "claude-sonnet-4-6", got.Env["VITIS_MODEL"])
+		// claudecode adapter reads VITIS_MODEL and emits --model.
 		require.Contains(t, got.Args, "--model")
 		require.Contains(t, got.Args, "claude-sonnet-4-6")
 	})

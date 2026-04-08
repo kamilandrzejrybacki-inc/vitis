@@ -12,14 +12,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus/inproc"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/conversation"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/peer/provider"
-	filestore "github.com/kamilandrzejrybacki-inc/clank/internal/store/file"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminator"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/util"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus/inproc"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/conversation"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/peer/provider"
+	filestore "github.com/kamilandrzejrybacki-inc/vitis/internal/store/file"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminator"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/util"
 
 	"flag"
 )

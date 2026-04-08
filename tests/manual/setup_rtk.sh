@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup_rtk.sh — install rtk and configure its hooks for the providers clank
+# setup_rtk.sh — install rtk and configure its hooks for the providers vitis
 # spawns. Idempotent: safe to re-run; skips steps that are already done.
 #
 # What it does:
@@ -8,10 +8,10 @@
 #      ~/.claude/settings.json)
 #   3. Runs `rtk init -g --codex` for Codex (writes the equivalent hook to
 #      ~/.codex/...)
-#   4. Verifies via `clank doctor` that the rtk hook is detected as active
+#   4. Verifies via `vitis doctor` that the rtk hook is detected as active
 #      for both providers
 #
-# Why: clank drives interactive AI agent CLIs through a PTY. The agents do
+# Why: vitis drives interactive AI agent CLIs through a PTY. The agents do
 # the actual tool calls (Bash, Read, Grep, ...), and rtk compresses those
 # command outputs by 60-90% before they reach the agent's context. In A2A
 # conversations where two agents may run dozens of tool calls per
@@ -22,7 +22,7 @@ set -euo pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${SCRIPT_DIR}/lib/common.sh"
 
-header "setup_rtk: install + configure rtk for clank-spawned agents"
+header "setup_rtk: install + configure rtk for vitis-spawned agents"
 
 # ---- Step 1: install rtk if missing ----------------------------------------
 
@@ -117,14 +117,14 @@ else
   warn "rtk init -g --codex failed — Codex hook support may differ in your rtk version"
 fi
 
-# ---- Step 4: verify via clank doctor ---------------------------------------
+# ---- Step 4: verify via vitis doctor ---------------------------------------
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 
 verify_provider() {
   local provider="$1"
-  printf '\n%s---%s clank doctor --provider %s\n' "$C_DIM" "$C_RESET" "${provider}"
-  out=$( "${CLANK}" doctor --provider "${provider}" 2>&1 )
+  printf '\n%s---%s vitis doctor --provider %s\n' "$C_DIM" "$C_RESET" "${provider}"
+  out=$( "${VITIS}" doctor --provider "${provider}" 2>&1 )
   echo "${out}"
 
   hook_installed=$(echo "${out}" | python3 -c '
@@ -144,5 +144,5 @@ print("yes" if rtk.get("hook_installed") else "no")
 verify_provider "claude-code"
 verify_provider "codex"
 
-printf '\n%sdone%s — rtk should now be active for any agent clank spawns.\n' "$C_GREEN$C_BOLD" "$C_RESET"
+printf '\n%sdone%s — rtk should now be active for any agent vitis spawns.\n' "$C_GREEN$C_BOLD" "$C_RESET"
 verify "next: run ./tests/manual/14_rtk_integration.sh to confirm end-to-end"

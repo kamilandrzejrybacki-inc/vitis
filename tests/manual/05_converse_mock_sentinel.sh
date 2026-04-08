@@ -16,15 +16,15 @@ setup_tmp_logs
 
 header "05_converse_mock_sentinel: sentinel terminator early-exits"
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 MOCK="$(mockagent_bin)"
-export CLANK_CLAUDE_BINARY="${MOCK}"
+export VITIS_CLAUDE_BINARY="${MOCK}"
 export MOCK_RESPONSE="ok"
 export MOCK_MULTI_TURN=1
 export MOCK_SENTINEL_AT_TURN=3   # peer-B emits <<END>> on its 3rd local turn
 
-info "clank converse, max-turns 20, sentinel on peer-B turn 3 → expected total ~6 turns"
-out=$( "${CLANK}" converse \
+info "vitis converse, max-turns 20, sentinel on peer-B turn 3 → expected total ~6 turns"
+out=$( "${VITIS}" converse \
   --peer-a provider:claude-code \
   --peer-b provider:claude-code \
   --seed "discuss until sentinel" \
@@ -34,7 +34,7 @@ out=$( "${CLANK}" converse \
   --sentinel "<<END>>" \
   --log-path "${TEST_LOG_DIR}" \
   --stream-turns=false ) || {
-    fail "clank converse exited non-zero"
+    fail "vitis converse exited non-zero"
   }
 
 print_json "${out}"

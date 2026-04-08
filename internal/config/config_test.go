@@ -84,14 +84,14 @@ func TestValidate_Valid(t *testing.T) {
 
 func TestToRunRequest(t *testing.T) {
 	c := RunConfig{
-		Prompt:      "do something",
-		Cwd:         "/tmp/work",
-		TimeoutSec:  120,
-		LogBackend:  "file",
-		LogPath:     "./logs",
-		DebugRaw:    true,
-		Cols:        120,
-		Rows:        40,
+		Prompt:     "do something",
+		Cwd:        "/tmp/work",
+		TimeoutSec: 120,
+		LogBackend: "file",
+		LogPath:    "./logs",
+		DebugRaw:   true,
+		Cols:       120,
+		Rows:       40,
 	}
 	req := c.ToRunRequest("claude-code")
 	if req.Provider != "claude-code" {

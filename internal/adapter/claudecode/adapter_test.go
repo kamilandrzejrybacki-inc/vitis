@@ -5,8 +5,8 @@ import (
 )
 
 func TestResolveCommandDefaults(t *testing.T) {
-	t.Setenv("CLANK_CLAUDE_BINARY", "")
-	t.Setenv("CLANK_CLAUDE_ARGS", "")
+	t.Setenv("VITIS_CLAUDE_BINARY", "")
+	t.Setenv("VITIS_CLAUDE_ARGS", "")
 
 	command, args := ResolveCommand(map[string]string{})
 	if command != "claude" {
@@ -19,8 +19,8 @@ func TestResolveCommandDefaults(t *testing.T) {
 
 func TestResolveCommandEnvOverride(t *testing.T) {
 	command, args := ResolveCommand(map[string]string{
-		"CLANK_CLAUDE_BINARY": "/tmp/mock-claude",
-		"CLANK_CLAUDE_ARGS":   "serve --color=never",
+		"VITIS_CLAUDE_BINARY": "/tmp/mock-claude",
+		"VITIS_CLAUDE_ARGS":   "serve --color=never",
 	})
 	if command != "/tmp/mock-claude" {
 		t.Fatalf("unexpected command: %q", command)
@@ -38,8 +38,8 @@ func TestAdapterID(t *testing.T) {
 }
 
 func TestBuildSpawnSpec_Defaults(t *testing.T) {
-	t.Setenv("CLANK_CLAUDE_BINARY", "")
-	t.Setenv("CLANK_CLAUDE_ARGS", "")
+	t.Setenv("VITIS_CLAUDE_BINARY", "")
+	t.Setenv("VITIS_CLAUDE_ARGS", "")
 
 	a := New()
 	spec := a.BuildSpawnSpec("/work", map[string]string{}, "/home/user", 120, 40, "")
@@ -120,10 +120,10 @@ func TestValidateExecutable_SafePath(t *testing.T) {
 }
 
 func TestResolveCommand_UnsafeBinaryFallsBackToDefault(t *testing.T) {
-	t.Setenv("CLANK_CLAUDE_BINARY", "")
+	t.Setenv("VITIS_CLAUDE_BINARY", "")
 
 	command, _ := ResolveCommand(map[string]string{
-		"CLANK_CLAUDE_BINARY": "cmd;inject",
+		"VITIS_CLAUDE_BINARY": "cmd;inject",
 	})
 	if command != "claude" {
 		t.Fatalf("expected fallback to 'claude', got %q", command)

@@ -1,9 +1,9 @@
 package orchestrator
 
 import (
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/store"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/store"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminal"
 )
 
 type Dependencies struct {

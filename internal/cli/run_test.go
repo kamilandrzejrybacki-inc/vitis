@@ -3,7 +3,7 @@ package cli_test
 import (
 	"testing"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/config"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/config"
 )
 
 func validRunConfig() config.RunConfig {

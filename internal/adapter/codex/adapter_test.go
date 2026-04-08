@@ -12,8 +12,8 @@ func TestAdapterID(t *testing.T) {
 }
 
 func TestBuildSpawnSpec_Defaults(t *testing.T) {
-	t.Setenv("CLANK_CODEX_BINARY", "")
-	t.Setenv("CLANK_CODEX_ARGS", "")
+	t.Setenv("VITIS_CODEX_BINARY", "")
+	t.Setenv("VITIS_CODEX_ARGS", "")
 
 	a := New()
 	spec := a.BuildSpawnSpec("/tmp", map[string]string{}, "/home/user", 80, 24, "test prompt")
@@ -55,11 +55,11 @@ func TestBuildSpawnSpec_Defaults(t *testing.T) {
 }
 
 func TestBuildSpawnSpec_EnvOverride(t *testing.T) {
-	t.Setenv("CLANK_CODEX_BINARY", "")
-	t.Setenv("CLANK_CODEX_ARGS", "")
+	t.Setenv("VITIS_CODEX_BINARY", "")
+	t.Setenv("VITIS_CODEX_ARGS", "")
 
 	a := New()
-	env := map[string]string{"CLANK_CODEX_BINARY": "/usr/local/bin/codex"}
+	env := map[string]string{"VITIS_CODEX_BINARY": "/usr/local/bin/codex"}
 	spec := a.BuildSpawnSpec("/tmp", env, "/home/user", 80, 24, "test")
 
 	if spec.Command != "/usr/local/bin/codex" {
@@ -68,14 +68,14 @@ func TestBuildSpawnSpec_EnvOverride(t *testing.T) {
 }
 
 func TestBuildSpawnSpec_ArgsOverride(t *testing.T) {
-	t.Setenv("CLANK_CODEX_BINARY", "")
-	t.Setenv("CLANK_CODEX_ARGS", "")
+	t.Setenv("VITIS_CODEX_BINARY", "")
+	t.Setenv("VITIS_CODEX_ARGS", "")
 
 	a := New()
-	env := map[string]string{"CLANK_CODEX_ARGS": "run --verbose"}
+	env := map[string]string{"VITIS_CODEX_ARGS": "run --verbose"}
 	spec := a.BuildSpawnSpec("/tmp", env, "/home/user", 80, 24, "my prompt")
 
-	// When CLANK_CODEX_ARGS overrides, prompt is still appended as last arg.
+	// When VITIS_CODEX_ARGS overrides, prompt is still appended as last arg.
 	if len(spec.Args) < 1 {
 		t.Fatalf("expected at least one arg, got %d: %#v", len(spec.Args), spec.Args)
 	}
@@ -106,8 +106,8 @@ func TestFormatPrompt_EmptyString(t *testing.T) {
 }
 
 func TestResolveCommand_Defaults(t *testing.T) {
-	t.Setenv("CLANK_CODEX_BINARY", "")
-	t.Setenv("CLANK_CODEX_ARGS", "")
+	t.Setenv("VITIS_CODEX_BINARY", "")
+	t.Setenv("VITIS_CODEX_ARGS", "")
 
 	command, args := ResolveCommand(map[string]string{})
 	if command != "codex" {
@@ -119,12 +119,12 @@ func TestResolveCommand_Defaults(t *testing.T) {
 }
 
 func TestResolveCommand_EnvOverride(t *testing.T) {
-	t.Setenv("CLANK_CODEX_BINARY", "")
-	t.Setenv("CLANK_CODEX_ARGS", "")
+	t.Setenv("VITIS_CODEX_BINARY", "")
+	t.Setenv("VITIS_CODEX_ARGS", "")
 
 	command, args := ResolveCommand(map[string]string{
-		"CLANK_CODEX_BINARY": "/tmp/mock-codex",
-		"CLANK_CODEX_ARGS":   "run --model o4-mini",
+		"VITIS_CODEX_BINARY": "/tmp/mock-codex",
+		"VITIS_CODEX_ARGS":   "run --model o4-mini",
 	})
 	if command != "/tmp/mock-codex" {
 		t.Fatalf("unexpected command: %q", command)
@@ -135,10 +135,10 @@ func TestResolveCommand_EnvOverride(t *testing.T) {
 }
 
 func TestResolveCommand_UnsafeBinaryFallsBackToDefault(t *testing.T) {
-	t.Setenv("CLANK_CODEX_BINARY", "")
+	t.Setenv("VITIS_CODEX_BINARY", "")
 
 	command, _ := ResolveCommand(map[string]string{
-		"CLANK_CODEX_BINARY": "cmd;inject",
+		"VITIS_CODEX_BINARY": "cmd;inject",
 	})
 	if command != "codex" {
 		t.Fatalf("expected fallback to 'codex', got %q", command)

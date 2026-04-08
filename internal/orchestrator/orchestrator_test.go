@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/terminal"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/terminal"
 )
 
 type fakeStore struct {
@@ -259,7 +259,7 @@ func TestResolvePrompt_InlinePrompt(t *testing.T) {
 }
 
 func TestResolvePrompt_FromFile(t *testing.T) {
-	f, err := os.CreateTemp("", "clank-prompt-*.txt")
+	f, err := os.CreateTemp("", "vitis-prompt-*.txt")
 	if err != nil {
 		t.Fatalf("create temp file: %v", err)
 	}
@@ -332,7 +332,7 @@ func TestResolvePrompt_FileNotFound(t *testing.T) {
 // TestRun_PromptFile_E2E verifies that Run() correctly reads the prompt from a file
 // using real file I/O, with the fake runtime/store for process isolation.
 func TestRun_PromptFile_E2E(t *testing.T) {
-	f, err := os.CreateTemp("", "clank-e2e-prompt-*.txt")
+	f, err := os.CreateTemp("", "vitis-e2e-prompt-*.txt")
 	if err != nil {
 		t.Fatalf("create temp file: %v", err)
 	}

@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/bus/inproc"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/bus/inproc"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 func TestBuildPeerEnv_AllowedAndModel(t *testing.T) {
@@ -26,10 +26,10 @@ func TestBuildPeerEnv_AllowedAndModel(t *testing.T) {
 	if _, has := env["LD_PRELOAD"]; has {
 		t.Errorf("disallowed key must be dropped; got %v", env)
 	}
-	if env["CLANK_MODEL"] != "claude-3-opus" {
+	if env["VITIS_MODEL"] != "claude-3-opus" {
 		t.Errorf("model not mapped: %v", env)
 	}
-	if env["CLANK_REASONING_EFFORT"] != "high" {
+	if env["VITIS_REASONING_EFFORT"] != "high" {
 		t.Errorf("reasoning-effort not mapped: %v", env)
 	}
 }

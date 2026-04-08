@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/claudecode"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/adapter/codex"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/model"
-	"github.com/kamilandrzejrybacki-inc/clank/internal/util"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/claudecode"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/adapter/codex"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
+	"github.com/kamilandrzejrybacki-inc/vitis/internal/util"
 )
 
 func DoctorCommand(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -54,7 +54,7 @@ func DoctorCommand(ctx context.Context, args []string, stdout, stderr io.Writer)
 		"detail":             detail,
 		"rtk":                DetectRTK(provider),
 		"warnings": []string{
-			"Clank is designed for local PTY control, not hosted brokering of consumer Claude accounts.",
+			"Vitis is designed for local PTY control, not hosted brokering of consumer Claude accounts.",
 		},
 	})
 	return 0

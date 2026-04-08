@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# 02_run_mock_happy.sh — clank run via the mock agent: happy path
+# 02_run_mock_happy.sh — vitis run via the mock agent: happy path
 #
 # What it tests:
-#   - clank run uses the CLANK_*_BINARY override correctly
+#   - vitis run uses the VITIS_*_BINARY override correctly
 #   - the mock agent's response is captured and surfaced as JSON
 #   - status=completed, response is non-empty
 #   - peek can read the resulting session
@@ -17,17 +17,17 @@ setup_tmp_logs
 
 header "02_run_mock_happy: single-shot run via mock agent"
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 MOCK="$(mockagent_bin)"
 
-# Point clank's claude-code adapter at the mock binary so we get a fast,
+# Point vitis's claude-code adapter at the mock binary so we get a fast,
 # deterministic, network-free run.
-export CLANK_CLAUDE_BINARY="${MOCK}"
+export VITIS_CLAUDE_BINARY="${MOCK}"
 export MOCK_RESPONSE="2 + 2 = 4"
 export MOCK_MODE="happy"
 
-info "clank run --provider claude-code --prompt 'what is 2+2?'"
-out=$( "${CLANK}" run --provider claude-code --prompt "what is 2+2?" --log-path "${TEST_LOG_DIR}" --timeout 10 )
+info "vitis run --provider claude-code --prompt 'what is 2+2?'"
+out=$( "${VITIS}" run --provider claude-code --prompt "what is 2+2?" --log-path "${TEST_LOG_DIR}" --timeout 10 )
 
 echo "${out}"
 assert_status "${out}" "completed"
@@ -36,8 +36,8 @@ assert_nonempty_response "${out}"
 session_id="$(json_field "${out}" session_id)"
 ok "session_id=${session_id}"
 
-info "clank peek the session log"
-peek_out=$( "${CLANK}" peek --session-id "${session_id}" --log-path "${TEST_LOG_DIR}" --last 10 )
+info "vitis peek the session log"
+peek_out=$( "${VITIS}" peek --session-id "${session_id}" --log-path "${TEST_LOG_DIR}" --last 10 )
 echo "${peek_out}"
 # Peek output shape: { "session_id": "...", "turns": [ {turn_index, role, content, ...}, ... ] }
 if [[ -z "$(json_field "${peek_out}" turns.0.content)" ]]; then

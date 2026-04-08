@@ -2,9 +2,9 @@
 # 11_logs_and_peek.sh — verify file-store persistence and peek output
 #
 # What it tests:
-#   - clank run writes session.json + turns.jsonl under <log-path>/
-#   - clank converse writes conversations/<id>.json + .jsonl under <log-path>/
-#   - clank peek can read both shapes
+#   - vitis run writes session.json + turns.jsonl under <log-path>/
+#   - vitis converse writes conversations/<id>.json + .jsonl under <log-path>/
+#   - vitis peek can read both shapes
 #   - file permissions are 0600 (readable only by owner)
 #
 # Run: tests/manual/11_logs_and_peek.sh
@@ -15,17 +15,17 @@ setup_tmp_logs
 
 header "11_logs_and_peek: persistence shape and permissions"
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 MOCK="$(mockagent_bin)"
-export CLANK_CLAUDE_BINARY="${MOCK}"
+export VITIS_CLAUDE_BINARY="${MOCK}"
 export MOCK_RESPONSE="hello world"
 export MOCK_MULTI_TURN=1
 
 # --- single-shot run ---
-info "clank run, write session log to ${TEST_LOG_DIR}"
+info "vitis run, write session log to ${TEST_LOG_DIR}"
 unset MOCK_MULTI_TURN
 export MOCK_MODE="happy"
-out=$( "${CLANK}" run --provider claude-code --prompt "ping" --log-path "${TEST_LOG_DIR}" --timeout 10 )
+out=$( "${VITIS}" run --provider claude-code --prompt "ping" --log-path "${TEST_LOG_DIR}" --timeout 10 )
 session_id=$(json_field "${out}" session_id)
 
 [[ -f "${TEST_LOG_DIR}/sessions/${session_id}.json" ]] || fail "missing session JSON"
@@ -35,14 +35,14 @@ session_perms=$(stat -c '%a' "${TEST_LOG_DIR}/sessions/${session_id}.json")
 [[ "${session_perms}" == "600" ]] || fail "session.json should be 600, got ${session_perms}"
 ok "session log written with 0600 perms"
 
-info "clank peek session"
-"${CLANK}" peek --session-id "${session_id}" --log-path "${TEST_LOG_DIR}" --last 5 | head -40
+info "vitis peek session"
+"${VITIS}" peek --session-id "${session_id}" --log-path "${TEST_LOG_DIR}" --last 5 | head -40
 ok "peek session worked"
 
 # --- A2A conversation ---
-info "clank converse, write conversation log to ${TEST_LOG_DIR}"
+info "vitis converse, write conversation log to ${TEST_LOG_DIR}"
 export MOCK_MULTI_TURN=1
-out=$( "${CLANK}" converse \
+out=$( "${VITIS}" converse \
   --peer-a provider:claude-code \
   --peer-b provider:claude-code \
   --seed "log persistence test" \

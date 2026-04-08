@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 07_converse_validation_errors.sh — exercise every CLI validation rejection path
 #
-# What it tests: clank converse rejects each invalid flag combination with
+# What it tests: vitis converse rejects each invalid flag combination with
 # exit code 2 and a stderr error message that names the offending flag.
 #
 # Run: tests/manual/07_converse_validation_errors.sh
@@ -11,14 +11,14 @@ source "${SCRIPT_DIR}/lib/common.sh"
 
 header "07_converse_validation_errors"
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 
 expect_validation_error() {
   local label="$1"; shift
   local expected_substring="$1"; shift
   printf '\n%s---%s %s\n' "$C_DIM" "$C_RESET" "${label}"
   set +e
-  err=$( "${CLANK}" converse "$@" 2>&1 >/dev/null )
+  err=$( "${VITIS}" converse "$@" 2>&1 >/dev/null )
   code=$?
   set -e
   if [[ ${code} -ne 2 ]]; then

@@ -3,7 +3,7 @@
 # the bundled mock or real claude/codex.
 #
 # What it tests:
-#   - clank converse runs end-to-end against a real LLM (via Portkey)
+#   - vitis converse runs end-to-end against a real LLM (via Portkey)
 #   - The marker-injection protocol works against an out-of-tree agent
 #     binary (validating the contract for any future drop-in replacement)
 #   - Per-peer model + reasoning-effort options reach the upstream gateway
@@ -53,13 +53,13 @@ if [[ -z "${PORTKEY_API_KEY:-}" ]]; then
   skip "PORTKEY_API_KEY not set (create tests/manual/.portkey.env or export it manually)"
 fi
 
-CLANK="$(clank_bin)"
+VITIS="$(vitis_bin)"
 
-# Point clank's claude-code adapter at portkeyagent. clank will spawn it
+# Point vitis's claude-code adapter at portkeyagent. vitis will spawn it
 # in interactive mode (no `exec` subcommand, no trailing prompt arg) per
 # the codex P1-1 fix, and portkeyagent's MOCK_MULTI_TURN auto-detection
 # means we don't need to set PORTKEYAGENT_MULTI_TURN explicitly.
-export CLANK_CLAUDE_BINARY="${PORTKEYAGENT_BIN}"
+export VITIS_CLAUDE_BINARY="${PORTKEYAGENT_BIN}"
 export MOCK_MULTI_TURN=1   # signals multi-turn mode to portkeyagent
 
 info "PORTKEY_API_KEY    = ${PORTKEY_API_KEY:0:8}…"
@@ -69,10 +69,10 @@ info "PORTKEY_ENDPOINT   = ${PORTKEY_ENDPOINT:-<default>}"
 info "PORTKEY_MODEL      = ${PORTKEY_MODEL:-<default: gpt-4o-mini>}"
 info "portkeyagent       = ${PORTKEYAGENT_BIN}"
 
-MAX_TURNS="${CLANK_MANUAL_MAX_TURNS:-4}"
+MAX_TURNS="${VITIS_MANUAL_MAX_TURNS:-4}"
 
-info "clank converse claude-code(portkeyagent) ↔ claude-code(portkeyagent), max-turns ${MAX_TURNS}"
-out=$( "${CLANK}" converse \
+info "vitis converse claude-code(portkeyagent) ↔ claude-code(portkeyagent), max-turns ${MAX_TURNS}"
+out=$( "${VITIS}" converse \
   --peer-a provider:claude-code \
   --peer-b provider:claude-code \
   --seed-a "Briefly suggest one Go testing best practice. End with <<END>>." \
@@ -85,7 +85,7 @@ out=$( "${CLANK}" converse \
   --log-path "${TEST_LOG_DIR}" \
   --stream-turns=true ) || {
     print_json "${out}" || true
-    fail "clank converse exited non-zero — Portkey/portkeyagent may not be configured correctly. See stderr above."
+    fail "vitis converse exited non-zero — Portkey/portkeyagent may not be configured correctly. See stderr above."
   }
 
 echo "${out}" | tail -120
