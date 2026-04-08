@@ -29,7 +29,7 @@ Vitis is a Go CLI tool that drives AI agent CLIs (Claude Code, OpenCode, etc.) t
 
 1. Go instead of TypeScript
 2. No stdout/stderr split in PTY events (PTY multiplexes both onto a single stream)
-3. Adapter does not touch PTY directly — provides specs + heuristics, orchestrator wires them
+3. Adapter does not touch PTY directly, provides specs + heuristics, orchestrator wires them
 4. Store failures are non-blocking warnings (never prevent response delivery)
 5. Binary named `vitis`, not `agent-bridge`
 
@@ -48,7 +48,7 @@ Vitis is a Go CLI tool that drives AI agent CLIs (Claude Code, OpenCode, etc.) t
 - Hosted or multi-tenant PTY serving
 - Browser-facing PTY sessions
 - Consumer Claude-account brokering
-- Automatic confirmation of permission prompts or auth prompts — Vitis never injects responses to interactive prompts; it detects them and surfaces them as a terminal run status instead
+- Automatic confirmation of permission prompts or auth prompts, Vitis never injects responses to interactive prompts; it detects them and surfaces them as a terminal run status instead
 
 ### Isolation
 
@@ -151,7 +151,7 @@ type Adapter interface {
 | `crashed` | Terminal | Agent process exited with a non-zero code and no recognisable output |
 | `error` | Terminal | Internal Vitis error (spawn failure, IO error, etc.) |
 
-Non-terminal states (`blocked_on_input`, `permission_prompt`, `auth_required`, `rate_limited`) are detected by the adapter observer and stored in the session for diagnostic purposes. In MVP, Vitis does not automatically respond to them — the run is eventually terminated by timeout or by the caller.
+Non-terminal states (`blocked_on_input`, `permission_prompt`, `auth_required`, `rate_limited`) are detected by the adapter observer and stored in the session for diagnostic purposes. In MVP, Vitis does not automatically respond to them, the run is eventually terminated by timeout or by the caller.
 
 ### Design Notes
 

@@ -1,39 +1,19 @@
 # Vitis Documentation
 
-**Vitis** is a local-first orchestrator for driving AI agent CLIs (Claude Code, Codex, …) through a real PTY. It started as a single-prompt-and-extract harness and has grown into a multi-turn agent-to-agent (A2A) broker with pluggable token-efficiency layers.
+Vitis is a local PTY orchestrator for AI agent CLIs. It drives Claude Code, Codex, and similar tools through a real terminal so you can run a single prompt and capture the response (`vitis run`) or run a structured multi-turn conversation between two agents (`vitis converse`).
 
-> The full README — installation, quick start, feature flag table, dependency stack, project tree, and design philosophy — lives in the [repository root](https://github.com/kamilandrzejrybacki-inc/vitis/blob/main/README.md). This site reproduces the canonical specs, plans, and review reports for browsing.
+The README at the [repository root](https://github.com/kamilandrzejrybacki-inc/vitis/blob/main/README.md) is the canonical install and quick-start doc. This site exists to give you a navigable view of the design specs, implementation plans, and review reports without cloning the repo.
 
-## What's in this site
+## What's here
 
 | Section | Contents |
 |---|---|
-| **[Specs](superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md)** | Canonical design specs for the A2A conversation system, the v1 agent bridge, and the PTY runtime |
-| **[Plans](superpowers/plans/2026-04-07-a2a-plan-1-foundation.md)** | Implementation plans, executed via subagent-driven development |
-| **[Reviews](superpowers/reviews/2026-04-07-a2a-review-findings.md)** | Consolidated findings from the parallel review passes (backend, golang-patterns, golang-testing, security, codex) |
-
-## Quick orientation
-
-```mermaid
-graph LR
-    PA["Peer A<br/>(claude / codex /<br/> mock / portkey)"]
-    PB["Peer B<br/>(claude / codex /<br/> mock / portkey)"]
-    BR["Vitis Conversation<br/>Broker"]
-    BR -->|envelope| PA
-    PA -->|reply| BR
-    BR -->|envelope| PB
-    PB -->|reply| BR
-```
-
-Vitis sits between two long-lived AI agent CLIs and routes turn-by-turn messages between them through a real PTY. The broker handles strict alternation, marker-token injection for turn-end detection, sentinel/judge termination, file-store persistence, and an event bus that's pluggable from in-process channels (default) to NATS (planned).
+| Specs | Canonical design specs for the A2A conversation system, the v1 agent bridge, and the PTY runtime. |
+| Plans | Implementation plans, executed via subagent-driven development. |
+| Reviews | Consolidated findings from the parallel review passes. |
 
 ## Where to start
 
-| If you want to… | Read this |
-|---|---|
-| Get a working `vitis converse` against real LLMs in 5 minutes | The [README quick start](https://github.com/kamilandrzejrybacki-inc/vitis/blob/main/README.md#quick-start) |
-| Understand the A2A protocol design | [A2A Conversations spec](superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md) |
-| See how the foundation packages were built | [A2A Plan 1 — Foundation](superpowers/plans/2026-04-07-a2a-plan-1-foundation.md) |
-| See how the PTY runtime + CLI were wired | [A2A Plan 2 — PTY + CLI](superpowers/plans/2026-04-07-a2a-plan-2-pty-cli.md) |
-| Understand what review passes caught and how they were fixed | [A2A Review Findings](superpowers/reviews/2026-04-07-a2a-review-findings.md) |
-| Run the manual test suite | [tests/manual/README.md](https://github.com/kamilandrzejrybacki-inc/vitis/blob/main/tests/manual/README.md) |
+If you want a working `vitis converse` against real LLMs in a few minutes, read the [README quick start](https://github.com/kamilandrzejrybacki-inc/vitis/blob/main/README.md#quick-start). If you want to understand the protocol, start with the [A2A Conversations spec](superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md). If you want to see how the foundation packages were built, the [A2A Plan 1](superpowers/plans/2026-04-07-a2a-plan-1-foundation.md) document is the canonical reference, and [A2A Plan 2](superpowers/plans/2026-04-07-a2a-plan-2-pty-cli.md) covers the PTY runtime and CLI wiring. The [review findings](superpowers/reviews/2026-04-07-a2a-review-findings.md) record what every review pass caught and how each finding was fixed.
+
+For day-to-day operation, [`tests/manual/README.md`](https://github.com/kamilandrzejrybacki-inc/vitis/blob/main/tests/manual/README.md) is the operator handbook: 15 numbered shell scripts that exercise every Vitis surface, plus the recommended setup order for the rtk, caveman, and Portkey integrations.

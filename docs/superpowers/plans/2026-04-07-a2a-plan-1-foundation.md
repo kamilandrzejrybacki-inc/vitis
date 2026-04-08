@@ -1,8 +1,8 @@
-# A2A Plan 1 — Foundation Implementation Plan
+# A2A Plan 1, Foundation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the pure-logic foundation for vitis's A2A conversation feature: data model, event bus (in-process backend), envelope/marker/briefing builders, sentinel terminator, file-store conversation persistence, and a Broker state machine that runs end-to-end against scripted mock peer transports — all with zero PTY changes and no CLI yet.
+**Goal:** Build the pure-logic foundation for vitis's A2A conversation feature: data model, event bus (in-process backend), envelope/marker/briefing builders, sentinel terminator, file-store conversation persistence, and a Broker state machine that runs end-to-end against scripted mock peer transports, all with zero PTY changes and no CLI yet.
 
 **Architecture:** New top-level packages (`internal/model` additions, `internal/bus`, `internal/bus/inproc`, `internal/conversation`, `internal/peer`, `internal/terminator`) communicate exclusively through narrow interfaces. The Broker subscribes to a `Bus` to receive turns and control messages, dispatches envelopes through `PeerTransport.Deliver`, runs `Terminator` as a bus subscriber, and persists via the existing `Store` interface (extended additively). The single-shot `vitis run` path is unchanged.
 
@@ -15,7 +15,7 @@
 - Module path is `github.com/kamilandrzejrybacki-inc/vitis`. Always import via this path.
 - Existing `internal/model` types live in `result.go`, `session.go`, `turn.go`, `status.go`, `errors.go`, `events.go`. New conversation types go in a new file `conversation.go` in the same package.
 - Existing `internal/store/store.go` defines the `Store` interface; the file backend lives at `internal/store/file/file_store.go` and uses sync.Mutex + atomic JSON file writes + JSONL append. Follow the same patterns.
-- Tests use `testify` (`github.com/stretchr/testify/require` and `assert`) — already in `go.sum`. Verify by grepping existing tests.
+- Tests use `testify` (`github.com/stretchr/testify/require` and `assert`), already in `go.sum`. Verify by grepping existing tests.
 - Run a single test with `go test -race -run TestName ./path/to/pkg/...`. Run the whole suite with `go test -race ./...`.
 - Commit messages use Conventional Commits (`feat:`, `test:`, `refactor:`, `chore:`). Project rule: do NOT add Co-Authored-By trailers (the global `~/.claude/settings.json` strips them).
 - After every code change, run `gofmt -w <file>` and `go vet ./...` before committing.
@@ -53,7 +53,7 @@
 
 ---
 
-## Task 0 — Branch hygiene and pre-flight
+## Task 0, Branch hygiene and pre-flight
 
 **Files:** none (working directory state)
 
@@ -73,7 +73,7 @@ go build ./...
 go test -race -count=1 ./internal/model/... ./internal/store/...
 ```
 
-Expected: build succeeds. Existing model and store tests pass. If they don't, STOP and report — Plan 1 cannot proceed against a broken baseline.
+Expected: build succeeds. Existing model and store tests pass. If they don't, STOP and report, Plan 1 cannot proceed against a broken baseline.
 
 - [ ] **Step 3: Create the plan-execution working note**
 
@@ -84,11 +84,11 @@ echo "" >> docs/superpowers/plans/2026-04-07-a2a-plan-1-foundation.md
 echo "<!-- execution-started: $(date -Is) -->" >> docs/superpowers/plans/2026-04-07-a2a-plan-1-foundation.md
 ```
 
-No commit yet — this marker rides along with Task 1's commit.
+No commit yet, this marker rides along with Task 1's commit.
 
 ---
 
-## Task 1 — Conversation data model
+## Task 1, Conversation data model
 
 **Files:**
 - Create: `internal/model/conversation.go`
@@ -335,12 +335,12 @@ git commit -m "feat(model): add A2A Conversation, ConversationTurn, Envelope typ
 
 ---
 
-## Task 2 — Bus interface
+## Task 2, Bus interface
 
 **Files:**
 - Create: `internal/bus/bus.go`
 
-This task has no test of its own — it's pure interface definition. Tests come in Task 3 (inproc backend).
+This task has no test of its own, it's pure interface definition. Tests come in Task 3 (inproc backend).
 
 - [ ] **Step 1: Write the bus package**
 
@@ -461,7 +461,7 @@ git commit -m "feat(bus): define Bus interface, BusMessage, ControlMsg, topic he
 
 ---
 
-## Task 3 — In-process Bus backend
+## Task 3, In-process Bus backend
 
 **Files:**
 - Create: `internal/bus/inproc/inproc.go`
@@ -680,7 +680,7 @@ func New(opts ...Option) *Bus {
 
 // Publish fans the message out to every current subscriber on topic.
 // A subscriber whose channel is full has the message dropped silently
-// (a warning is the caller's responsibility — bus implementations must
+// (a warning is the caller's responsibility, bus implementations must
 // not block on slow consumers).
 func (b *Bus) Publish(_ context.Context, topic string, msg bus.BusMessage) error {
 	b.mu.RLock()
@@ -783,7 +783,7 @@ git commit -m "feat(bus): in-process channel-fanout Bus backend"
 
 ---
 
-## Task 4 — Marker token generator
+## Task 4, Marker token generator
 
 **Files:**
 - Create: `internal/conversation/marker.go`
@@ -943,12 +943,12 @@ git commit -m "feat(conversation): per-turn marker token generator and parser"
 
 ---
 
-## Task 5 — Briefing template
+## Task 5, Briefing template
 
 **Files:**
 - Create: `internal/conversation/briefing.go`
 
-This task ships without its own test file — it's a small pure function tested in Task 6 (envelope) since the briefing is only meaningful in the context of an envelope.
+This task ships without its own test file, it's a small pure function tested in Task 6 (envelope) since the briefing is only meaningful in the context of an envelope.
 
 - [ ] **Step 1: Write the briefing renderer**
 
@@ -1025,7 +1025,7 @@ git commit -m "feat(conversation): briefing template renderer for sentinel and j
 
 ---
 
-## Task 6 — Envelope builder
+## Task 6, Envelope builder
 
 **Files:**
 - Create: `internal/conversation/envelope.go`
@@ -1214,12 +1214,12 @@ git commit -m "feat(conversation): envelope builder for turn 1 and turn N"
 
 ---
 
-## Task 7 — Final result type
+## Task 7, Final result type
 
 **Files:**
 - Create: `internal/conversation/result.go`
 
-No test of its own — it's a value type used by Task 11 (broker) which has comprehensive tests covering it.
+No test of its own, it's a value type used by Task 11 (broker) which has comprehensive tests covering it.
 
 - [ ] **Step 1: Write the file**
 
@@ -1258,7 +1258,7 @@ git commit -m "feat(conversation): FinalResult value type"
 
 ---
 
-## Task 8 — Peer transport interface
+## Task 8, Peer transport interface
 
 **Files:**
 - Create: `internal/peer/transport.go`
@@ -1299,7 +1299,7 @@ import (
 //      conversation; calling Start twice is a programming error.
 //   2. Deliver hands one envelope to the peer and blocks until either the
 //      response turn is captured (success) or an error occurs. Deliver is
-//      called serially by the broker — at most one Deliver in flight at a
+//      called serially by the broker, at most one Deliver in flight at a
 //      time per peer per conversation.
 //   3. Stop terminates the peer with a grace period. After Stop, neither
 //      Deliver nor Start may be called.
@@ -1439,7 +1439,7 @@ git commit -m "feat(peer): PeerTransport interface and scripted mock implementat
 
 ---
 
-## Task 9 — Terminator interface and sentinel implementation
+## Task 9, Terminator interface and sentinel implementation
 
 **Files:**
 - Create: `internal/terminator/terminator.go`
@@ -1734,7 +1734,7 @@ git commit -m "feat(terminator): Terminator interface and sentinel implementatio
 
 ---
 
-## Task 10 — Store interface extension
+## Task 10, Store interface extension
 
 **Files:**
 - Modify: `internal/store/store.go`
@@ -1761,7 +1761,7 @@ type Store interface {
 	PeekTurns(ctx context.Context, sessionID string, lastN int) ([]model.Turn, error)
 	AppendStreamEvent(ctx context.Context, event model.StoredStreamEvent) error
 
-	// A2A conversation methods (additive — single-shot path is unaffected).
+	// A2A conversation methods (additive, single-shot path is unaffected).
 	CreateConversation(ctx context.Context, conv model.Conversation) error
 	UpdateConversation(ctx context.Context, conversationID string, patch model.ConversationPatch) error
 	AppendConversationTurn(ctx context.Context, turn model.ConversationTurn) error
@@ -1778,16 +1778,16 @@ gofmt -w internal/store/store.go
 go vet ./internal/store/...
 ```
 
-Note: this WILL break the build of `internal/store/file` and `internal/store/postgres` because the file Store no longer satisfies the interface. That is expected and is fixed in Task 11. Do NOT commit yet — Task 11 commits both together.
+Note: this WILL break the build of `internal/store/file` and `internal/store/postgres` because the file Store no longer satisfies the interface. That is expected and is fixed in Task 11. Do NOT commit yet, Task 11 commits both together.
 
 ---
 
-## Task 11 — File backend conversation persistence
+## Task 11, File backend conversation persistence
 
 **Files:**
 - Modify: `internal/store/file/file_store.go`
 - Test: `internal/store/file/file_store_conversation_test.go`
-- Possibly: `internal/store/postgres/postgres_store.go` — add stub methods so the package still builds; full implementation is Plan 3
+- Possibly: `internal/store/postgres/postgres_store.go`, add stub methods so the package still builds; full implementation is Plan 3
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1895,7 +1895,7 @@ Expected: build fails (interface unsatisfied + methods undefined).
 
 Add the following methods to the `Store` struct, plus the helper paths. Leave existing code unchanged.
 
-Append at the bottom of the file (before any final closing brace) — these are new methods on the existing `Store` type:
+Append at the bottom of the file (before any final closing brace), these are new methods on the existing `Store` type:
 
 ```go
 // --- Conversation persistence (A2A) ---
@@ -2022,7 +2022,7 @@ git commit -m "feat(store): conversation persistence on Store interface and file
 
 ---
 
-## Task 12 — Conversation Broker state machine
+## Task 12, Conversation Broker state machine
 
 **Files:**
 - Create: `internal/conversation/broker.go`
@@ -2445,7 +2445,7 @@ go build ./...
 go test -race -count=1 ./internal/conversation/...
 ```
 
-Expected: PASS for all broker tests. (The sentinel termination test has a tricky timing element — the terminator subscriber must be subscribed before the broker publishes the third turn. This works because the broker calls `Terminator.Start` before its first `Deliver`.)
+Expected: PASS for all broker tests. (The sentinel termination test has a tricky timing element, the terminator subscriber must be subscribed before the broker publishes the third turn. This works because the broker calls `Terminator.Start` before its first `Deliver`.)
 
 - [ ] **Step 5: Commit**
 
@@ -2456,7 +2456,7 @@ git commit -m "feat(conversation): Broker state machine with strict alternation,
 
 ---
 
-## Task 13 — Whole-suite green check
+## Task 13, Whole-suite green check
 
 **Files:** none
 
@@ -2503,18 +2503,18 @@ Walking the spec section by section:
 | Spec section | Plan 1 coverage | Plan covering remainder |
 |---|---|---|
 | §1 Overview | Foundation in place; conversation runtime works against mock peers | Plans 2–5 |
-| §1a Product Boundary | N/A — no I/O |  |
-| §2 Architecture | Broker, Bus, Terminator, Store, ConversationStore subset all in place | — |
-| §3 Data model | Conversation, ConversationTurn, ConversationPatch, PeerSpec, TerminatorSpec, Verdict, Envelope all in `internal/model/conversation.go` | — |
+| §1a Product Boundary | N/A, no I/O |  |
+| §2 Architecture | Broker, Bus, Terminator, Store, ConversationStore subset all in place |, |
+| §3 Data model | Conversation, ConversationTurn, ConversationPatch, PeerSpec, TerminatorSpec, Verdict, Envelope all in `internal/model/conversation.go` |, |
 | §4 Peer transport | PeerTransport interface + mock impl. Real provider/remote/stdio in Plans 2/4/5 | Plans 2/4/5 |
-| §5 Broker | Strict alternation, hard max-turns, sentinel termination via real Terminator, error/cancel/crash control draining, finalize semantics | — |
+| §5 Broker | Strict alternation, hard max-turns, sentinel termination via real Terminator, error/cancel/crash control draining, finalize semantics |, |
 | §6 Bus | Bus interface + inproc backend; NATS in Plan 4 | Plan 4 |
-| §7 CLI | NOT in Plan 1 — Plan 2 ships `vitis converse` | Plan 2 |
+| §7 CLI | NOT in Plan 1, Plan 2 ships `vitis converse` | Plan 2 |
 | §8 Project layout | All M1 directories created except `peer/provider`, `peer/remote`, `peer/stdio`, `terminator/judge`, `bus/nats`, `cli/converse*`, `terminal/persistent` | Plans 2/3/4/5 |
-| §9 Error model | ConvError, ConvPeerCrashed, ConvPeerBlocked, ConvInterrupted, ConvMaxTurnsHit, ConvCompletedSentinel all reachable in broker; warnings collected | — |
+| §9 Error model | ConvError, ConvPeerCrashed, ConvPeerBlocked, ConvInterrupted, ConvMaxTurnsHit, ConvCompletedSentinel all reachable in broker; warnings collected |, |
 | §10 Testing | Unit + integration via mock peers; full race-detector suite green | Real PTY integration tests in Plan 2 |
-| §11 Milestones | Implements the broker + sentinel + bus + file persistence portion of M1 | — |
-| §12 Open questions | Marker format chosen: hex 12-char suffix (`TURN_END_<12 hex>`) — committed. Other open questions deferred to later plans | — |
+| §11 Milestones | Implements the broker + sentinel + bus + file persistence portion of M1 |, |
+| §12 Open questions | Marker format chosen: hex 12-char suffix (`TURN_END_<12 hex>`), committed. Other open questions deferred to later plans |, |
 
 **Placeholder scan:** every step shows real code or real commands. No `TODO`, `TBD`, or "implement later". The postgres stub methods explicitly say "not implemented in M1 (plan 3 adds it)" which is a documented deferral, not a placeholder.
 

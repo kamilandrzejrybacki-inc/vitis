@@ -16,19 +16,19 @@
 ### Step 1.2: Define model types
 
 **Files:**
-- `internal/model/status.go` — `RunStatus` type and constants (`completed`, `timeout`, `error`, `partial`)
-- `internal/model/session.go` — `Session`, `SessionPatch`
-- `internal/model/turn.go` — `Turn`
-- `internal/model/result.go` — `RunRequest`, `RunResult`, `ResultMeta`
-- `internal/model/errors.go` — `ErrorCode` constants, `RunError` struct
-- `internal/model/events.go` — `StreamEvent`, `StoredStreamEvent`, `ExitResult`
+- `internal/model/status.go`, `RunStatus` type and constants (`completed`, `timeout`, `error`, `partial`)
+- `internal/model/session.go`, `Session`, `SessionPatch`
+- `internal/model/turn.go`, `Turn`
+- `internal/model/result.go`, `RunRequest`, `RunResult`, `ResultMeta`
+- `internal/model/errors.go`, `ErrorCode` constants, `RunError` struct
+- `internal/model/events.go`, `StreamEvent`, `StoredStreamEvent`, `ExitResult`
 
 ### Step 1.3: Define interfaces
 
 **Files:**
-- `internal/adapter/adapter.go` — `Adapter` interface, `SpawnSpec`, `CompletionSignal`, `ExtractionResult`, `CompletionContext`, `AdapterRegistry`
-- `internal/terminal/runtime.go` — `PseudoTerminalRuntime` interface, `PseudoTerminalProcess` interface
-- `internal/store/store.go` — `Store` interface
+- `internal/adapter/adapter.go`, `Adapter` interface, `SpawnSpec`, `CompletionSignal`, `ExtractionResult`, `CompletionContext`, `AdapterRegistry`
+- `internal/terminal/runtime.go`, `PseudoTerminalRuntime` interface, `PseudoTerminalProcess` interface
+- `internal/store/store.go`, `Store` interface
 
 **Done when:** All types compile. No implementation yet.
 
@@ -41,11 +41,11 @@
 **File:** `internal/terminal/buffer.go`
 
 - Accumulates `StreamEvent` entries
-- `Append(event StreamEvent)` — thread-safe append
-- `Bytes() []byte` — full transcript
-- `Tail(numberOfBytes int) []byte` — last N bytes
-- `LastChunkTimestamp() time.Time` — for idle detection
-- `ExitCode() *int` — set when process exits
+- `Append(event StreamEvent)`, thread-safe append
+- `Bytes() []byte`, full transcript
+- `Tail(numberOfBytes int) []byte`, last N bytes
+- `LastChunkTimestamp() time.Time`, for idle detection
+- `ExitCode() *int`, set when process exits
 - Protected by `sync.Mutex`
 
 **Tests:** `internal/terminal/buffer_test.go`
@@ -58,10 +58,10 @@
 **File:** `internal/terminal/process.go`
 
 - Wraps `os.File` (PTY master) and `*exec.Cmd`
-- `Write(data []byte)` — writes to PTY master
-- `Output() <-chan StreamEvent` — goroutine reads from PTY master, timestamps chunks, sends to channel
-- `Done() <-chan ExitResult` — goroutine waits on `cmd.Wait()`, sends exit result
-- `Terminate(gracePeriod time.Duration)` — sends SIGINT, waits grace period, sends SIGKILL if still alive
+- `Write(data []byte)`, writes to PTY master
+- `Output() <-chan StreamEvent`, goroutine reads from PTY master, timestamps chunks, sends to channel
+- `Done() <-chan ExitResult`, goroutine waits on `cmd.Wait()`, sends exit result
+- `Terminate(gracePeriod time.Duration)`, sends SIGINT, waits grace period, sends SIGKILL if still alive
 
 **Tests:** `internal/terminal/process_test.go`
 - Spawn `/bin/echo hello`, read output, verify exit code 0
@@ -89,12 +89,12 @@
 **File:** `internal/store/file/file_store.go`
 
 - Constructor takes `logPath` and `debugRaw` flag
-- `CreateSession` — writes `<logPath>/sessions/<sessionID>.json` (temp + rename)
-- `UpdateSession` — reads, patches, writes (temp + rename)
-- `AppendTurn` — appends JSON line to `<logPath>/turns/<sessionID>.jsonl`
-- `PeekTurns` — reads JSONL, returns last N turns
-- `AppendStreamEvent` — appends to `<logPath>/raw/<sessionID>.jsonl` (no-op if not debugRaw)
-- `Close` — no-op
+- `CreateSession`, writes `<logPath>/sessions/<sessionID>.json` (temp + rename)
+- `UpdateSession`, reads, patches, writes (temp + rename)
+- `AppendTurn`, appends JSON line to `<logPath>/turns/<sessionID>.jsonl`
+- `PeekTurns`, reads JSONL, returns last N turns
+- `AppendStreamEvent`, appends to `<logPath>/raw/<sessionID>.jsonl` (no-op if not debugRaw)
+- `Close`, no-op
 
 **Tests:** `internal/store/file/file_store_test.go`
 - Create session, read back from disk
@@ -110,7 +110,7 @@
 - Embeds migration SQL via `embed.FS`
 - Runs migrations on first connection
 - Implements all `Store` methods with parameterized queries
-- `Close` — closes connection pool
+- `Close`, closes connection pool
 
 **File:** `internal/store/postgres/migrations/001_init.sql`
 
@@ -134,8 +134,8 @@
 **File:** `internal/adapter/claude_code/claude_code_adapter.go`
 
 - `ID()` returns `"claude-code"`
-- `BuildSpawnSpec` — returns `claude` command with appropriate args, passes through `cwd` and `env`
-- `FormatPrompt` — appends newline to raw prompt string
+- `BuildSpawnSpec`, returns `claude` command with appropriate args, passes through `cwd` and `env`
+- `FormatPrompt`, appends newline to raw prompt string
 
 ### Step 4.2: Completion detection
 
@@ -143,18 +143,18 @@
 
 - `DetectCompletion(context CompletionContext) *CompletionSignal`
 - Priority order:
-  1. Process exited (`ExitCode != nil`) — confidence 1.0
-  2. Known Claude CLI prompt pattern reappears in stream tail — confidence 0.9
-  3. Silence heuristic: non-empty output received, then idle > 2 seconds — confidence 0.6
+  1. Process exited (`ExitCode != nil`), confidence 1.0
+  2. Known Claude CLI prompt pattern reappears in stream tail, confidence 0.9
+  3. Silence heuristic: non-empty output received, then idle > 2 seconds, confidence 0.6
 - Returns `nil` if none match
 
 **Tests:** `internal/adapter/claude_code/completion_test.go`
-- Transcript with clean exit — returns completed, confidence 1.0
-- Transcript with prompt reappearance — returns completed, confidence 0.9
-- Transcript with output then silence — returns completed, confidence 0.6
-- Transcript still streaming — returns nil
-- Empty output with silence — returns nil (don't trigger on startup delay)
-- ANSI escape sequences in stream tail — still detects patterns
+- Transcript with clean exit, returns completed, confidence 1.0
+- Transcript with prompt reappearance, returns completed, confidence 0.9
+- Transcript with output then silence, returns completed, confidence 0.6
+- Transcript still streaming, returns nil
+- Empty output with silence, returns nil (don't trigger on startup delay)
+- ANSI escape sequences in stream tail, still detects patterns
 
 ### Step 4.3: Response extraction
 
@@ -163,24 +163,24 @@
 - `ExtractResponse(transcript []byte) ExtractionResult`
 - Strip ANSI escape sequences
 - Priority:
-  1. Parse last assistant block by prompt pattern transitions — confidence 0.9
-  2. Last non-empty output block — confidence 0.6
-  3. Nothing found — empty string, confidence 0.1
+  1. Parse last assistant block by prompt pattern transitions, confidence 0.9
+  2. Last non-empty output block, confidence 0.6
+  3. Nothing found, empty string, confidence 0.1
 - Store notes for ambiguous cases
 
 **Tests:** `internal/adapter/claude_code/extraction_test.go`
-- Clean transcript with single response — high confidence
-- Transcript with tool usage interspersed — extracts final response only
-- ANSI-heavy output — stripped cleanly
-- Empty transcript — empty response, low confidence
+- Clean transcript with single response, high confidence
+- Transcript with tool usage interspersed, extracts final response only
+- ANSI-heavy output, stripped cleanly
+- Empty transcript, empty response, low confidence
 - Use `testdata/` directory with recorded real terminal output samples
 
 ### Step 4.4: Adapter registration
 
 **File:** `internal/adapter/adapter.go` (extend)
 
-- `AdapterRegistry` — map of `string` to `Adapter`
-- `NewDefaultRegistry()` — returns registry with Claude Code adapter registered
+- `AdapterRegistry`, map of `string` to `Adapter`
+- `NewDefaultRegistry()`, returns registry with Claude Code adapter registered
 
 **Done when:** All adapter unit tests pass with representative transcript samples.
 

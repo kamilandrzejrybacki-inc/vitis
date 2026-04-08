@@ -1,4 +1,4 @@
-# Vitis A2A Conversations — Design Spec
+# Vitis A2A Conversations, Design Spec
 
 - **Status**: Draft (awaiting user review)
 - **Date**: 2026-04-07
@@ -15,8 +15,8 @@ The development workflow mandates research/reuse before any new implementation. 
 
 - **GitHub code search** for existing Go multi-agent / A2A frameworks: `gh search repos "multi-agent go"`, `gh search code "agent to agent" language:go`, look at `eino`, `langchaingo`, any AutoGen-in-Go ports.
 - **Context7 / vendor docs** for `nats.go` (current client API) and `nats-server` embeddable mode.
-- **PTY multiplexing patterns** — survey how existing terminal multiplexers and TUI test harnesses solve mid-stream turn-boundary detection.
-- **Marker injection prior art** — search for "agent loop sentinel token" patterns in existing agent frameworks.
+- **PTY multiplexing patterns**, survey how existing terminal multiplexers and TUI test harnesses solve mid-stream turn-boundary detection.
+- **Marker injection prior art**, search for "agent loop sentinel token" patterns in existing agent frameworks.
 
 Findings get folded into the implementation plan. If a battle-tested library covers 80% of the bus or peer-transport surface, we adopt it instead of writing our own.
 
@@ -24,7 +24,7 @@ Findings get folded into the implementation plan. If a battle-tested library cov
 
 ## 1. Overview
 
-Vitis today is single-shot: one prompt, one response, PTY dies. This spec adds **A2A (agent-to-agent) conversations**: two long-lived peers exchange turns through a Conversation Broker, with persistent PTY processes preserving each peer's internal state across turns. Peers are interchangeable — a local PTY agent, a remote vitis instance, and a stdio-piped external agent all implement the same `PeerTransport` interface.
+Vitis today is single-shot: one prompt, one response, PTY dies. This spec adds **A2A (agent-to-agent) conversations**: two long-lived peers exchange turns through a Conversation Broker, with persistent PTY processes preserving each peer's internal state across turns. Peers are interchangeable, a local PTY agent, a remote vitis instance, and a stdio-piped external agent all implement the same `PeerTransport` interface.
 
 The architecture is **event-driven** by design: the Broker, peer transports, store, terminator, and observers all communicate through a pluggable `Bus` interface. The default in-process bus is zero-dependency. An opt-in NATS backend unlocks distributed peers, live observability, and pluggable judges with no broker code changes.
 
@@ -43,9 +43,9 @@ The architecture is **event-driven** by design: the Broker, peer transports, sto
 
 ### Key Departures from the v1 Agent Bridge Spec
 
-1. New top-level `Conversation` entity, additive to existing `Session` model — single-shot path is unchanged.
+1. New top-level `Conversation` entity, additive to existing `Session` model, single-shot path is unchanged.
 2. New persistent PTY runtime extension (`PersistentPseudoTerminalProcess` with `ConverseTurn`), additive to existing `PseudoTerminalProcess` interface.
-3. New optional adapter capability (`TurnBoundaryDetector`) — runtime-asserted, never required.
+3. New optional adapter capability (`TurnBoundaryDetector`), runtime-asserted, never required.
 4. Store becomes one of many bus subscribers rather than a special integration path.
 5. New CLI subcommands (`converse`, `converse-serve`, `converse-tail`); existing `run` and `peek` untouched.
 
@@ -67,7 +67,7 @@ The architecture is **event-driven** by design: the Broker, peer transports, sto
 - Free-form turn-taking, peer-initiated interrupts, or peer addressing (`@peer-b: ...`)
 - Automatic recovery from peer crashes (crash terminates the conversation)
 - Resumption of a dead conversation from its turn log
-- Hosted/multi-tenant brokering — operator still owns the bus and machines
+- Hosted/multi-tenant brokering, operator still owns the bus and machines
 
 ### Isolation
 
@@ -101,16 +101,16 @@ Each peer transport inherits the existing single-shot isolation guarantees: HOME
 +------------------------------------------------------+
 
 Peer transports:
-  provider:<id>  — local persistent PTY via adapter
-  vitis://       — remote vitis peer across the bus
-  stdio://       — this process's stdin/stdout (JSONL framed)
+  provider:<id> , local persistent PTY via adapter
+  vitis://      , remote vitis peer across the bus
+  stdio://      , this process's stdin/stdout (JSONL framed)
 ```
 
 ### Flow
 
 1. `vitis converse` parses flags, builds a `Conversation` and two `PeerSpec`s.
 2. Broker initialises the chosen Bus backend (`inproc` or `nats`).
-3. Both peer transports `Start()` in parallel — local PTYs spawn, `vitis://` peers handshake over the bus, `stdio://` opens its frame loop.
+3. Both peer transports `Start()` in parallel, local PTYs spawn, `vitis://` peers handshake over the bus, `stdio://` opens its frame loop.
 4. Broker subscribes the Store, the Terminator, and any observers to the conversation topics.
 5. Broker builds turn-1 envelope for the opener (briefing + seed + per-turn marker token), calls `opener.Deliver(envelope)`.
 6. Peer transport drives its PTY/wire, captures the response, returns a `ConversationTurn`.
@@ -376,7 +376,7 @@ type PersistentPseudoTerminalProcess interface {
 4. Context cancelled → publish nothing, return error.
 5. PTY process exits unexpectedly → publish `peer_crashed`, return error.
 
-The buffer is **windowed by turn boundaries** — turn N+1 reads only from the offset recorded at the end of turn N. Prior turns' chrome noise never contaminates the next turn's extraction.
+The buffer is **windowed by turn boundaries**, turn N+1 reads only from the offset recorded at the end of turn N. Prior turns' chrome noise never contaminates the next turn's extraction.
 
 #### Adapter extension (additive, optional)
 
@@ -394,7 +394,7 @@ Adapters implement this **optionally**. The persistent PTY runtime asserts the i
 - `Deliver` publishes the envelope to the *remote* peer's inbox (the remote vitis-converse-serve process is the actual subscriber there) and awaits the corresponding `turn` message on `conv/<id>/turn`.
 - `Stop` publishes a goodbye control message and unsubscribes.
 
-Requires `--bus nats://...` — `inproc` cannot reach another process.
+Requires `--bus nats://...`, `inproc` cannot reach another process.
 
 #### `stdioTransport` (this process's stdin/stdout)
 
@@ -509,11 +509,11 @@ Terminators are bus subscribers, not inline checks. They watch `conv/<id>/turn` 
 
 Configured via `--judge <uri>`. Two URI shapes:
 
-1. **`bus://<topic>`** — a separate process is already subscribed to the bus and publishes `Verdict` messages to `<topic>`. The judge terminator just wires that topic into the broker's control flow. Bring-your-own-judge case. Language-agnostic — Python, n8n, Prefect, anything that can speak NATS can be a judge.
+1. **`bus://<topic>`**, a separate process is already subscribed to the bus and publishes `Verdict` messages to `<topic>`. The judge terminator just wires that topic into the broker's control flow. Bring-your-own-judge case. Language-agnostic, Python, n8n, Prefect, anything that can speak NATS can be a judge.
 
-2. **`provider:<id>`** — vitis spawns a *third* PTY peer in single-shot mode after every turn (reusing the existing `vitis run` machinery), feeds it a fixed judge briefing plus the conversation history so far, parses the response for `CONTINUE` or `TERMINATE: <reason>`, publishes the verdict.
+2. **`provider:<id>`**, vitis spawns a *third* PTY peer in single-shot mode after every turn (reusing the existing `vitis run` machinery), feeds it a fixed judge briefing plus the conversation history so far, parses the response for `CONTINUE` or `TERMINATE: <reason>`, publishes the verdict.
 
-The judge runs **after every turn** on a bounded goroutine. If the judge itself times out or crashes, the broker logs a warning and continues — judge failure is never fatal to the conversation.
+The judge runs **after every turn** on a bounded goroutine. If the judge itself times out or crashes, the broker logs a warning and continues, judge failure is never fatal to the conversation.
 
 ### Terminator precedence (when multiple signals fire in the same loop iteration)
 
@@ -572,7 +572,7 @@ All bus backends honor the same topics from §2. Peer inboxes have exactly one s
 
 ### Backends not in this spec
 
-MQTT, Redis pub/sub, and JetStream durable streams are deferred. Adding any of them is a single new package implementing the `Bus` interface — no broker code changes.
+MQTT, Redis pub/sub, and JetStream durable streams are deferred. Adding any of them is a single new package implementing the `Bus` interface, no broker code changes.
 
 ---
 
@@ -824,7 +824,7 @@ const (
 
 ## 11. Milestones
 
-### M1 — Conversation Core (in-process only)
+### M1, Conversation Core (in-process only)
 
 - `Bus` interface + inproc backend
 - `Conversation` model + file-backend persistence
@@ -836,14 +836,14 @@ const (
 - Unit + integration tests with mock agents
 - Manual `claudecode ↔ codex` smoke test
 
-### M2 — Pluggable Termination and Postgres
+### M2, Pluggable Termination and Postgres
 
 - Judge terminator (bus mode and provider mode)
 - Postgres conversation persistence + migration
 - Stream-turns JSONL output
 - Test harness for judge integrations
 
-### M3 — Distributed and Observable
+### M3, Distributed and Observable
 
 - NATS bus backend (external + embedded)
 - `RemoteTransport` (`vitis://` peer)
@@ -852,7 +852,7 @@ const (
 - Integration tests across two vitis processes via NATS testcontainer
 - Documentation: bring-your-own-judge recipe, n8n/Prefect subscription example
 
-### M4 — stdio peer and polish
+### M4, stdio peer and polish
 
 - `stdioTransport` + JSONL frame protocol
 - Conversation resume / replay (load from store, not yet supported)
@@ -875,6 +875,6 @@ These are flagged for the implementation plan to resolve, not for this spec:
 
 1. **Marker token format**: literal `<<TURN_END_<6 hex chars>>>` or wrap in ANSI invisible escape? Hex chars are simpler and human-debuggable; ANSI is harder for the model to forget but harder to debug. Lean toward hex, decide during prototype.
 2. **NATS embedded mode default**: should `vitis converse --bus nats` without a URL spin up an embedded server automatically? Convenient but adds startup latency. Probably yes for dev ergonomics, off by default in CI.
-3. **Briefing template overrides**: should users be able to provide a custom briefing file (`--briefing-template path.txt`)? Yes, but defer to M2 — ship the canonical template first.
+3. **Briefing template overrides**: should users be able to provide a custom briefing file (`--briefing-template path.txt`)? Yes, but defer to M2, ship the canonical template first.
 4. **Per-peer log paths**: should each peer's persistent PTY raw stream go to its own file under `<logPath>/conversations/<id>/peer-<slot>.raw.jsonl`? Yes; reuses the existing `debugRaw` scheme.
 5. **Judge prompt template**: where does the canned judge briefing live for `provider:` mode? Suggest `internal/terminator/judge_briefing.txt` embedded via `embed.FS`.

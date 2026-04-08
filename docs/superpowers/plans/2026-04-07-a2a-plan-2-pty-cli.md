@@ -1,10 +1,10 @@
-# A2A Plan 2 — PTY Persistent Runtime + `vitis converse` CLI
+# A2A Plan 2, PTY Persistent Runtime + `vitis converse` CLI
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Wire Plan 1's foundation (broker, bus, sentinel, mock peer) into a real subprocess world. Build a `PersistentPseudoTerminalProcess` that drives a long-lived PTY across multiple turns using marker-token detection, a `providerTransport` that uses it, a multi-turn-capable mock agent for testing, and the `vitis converse` CLI command. After Plan 2 ships, `vitis converse provider:mock provider:mock --seed "hi" --max-turns 3 --terminator sentinel` works end-to-end.
 
-**Architecture:** A new wrapper struct `PersistentProcess` lives in `internal/peer/provider/persistent.go`. It owns a `terminal.PseudoTerminalProcess` (the existing single-shot type), accumulates output bytes into a buffer, and on each `ConverseTurn(envelopeBytes, marker, timeout)` call writes the envelope to the PTY then reads forward until the marker token appears in the new bytes. The wrapper does NOT touch the existing PTY runtime — it composes around it. A `providerTransport` in the same package implements `peer.PeerTransport` by spawning a PTY via the existing `terminal.Runtime`, formatting envelopes via the relevant adapter's `FormatPrompt`, and delegating turn execution to `PersistentProcess`.
+**Architecture:** A new wrapper struct `PersistentProcess` lives in `internal/peer/provider/persistent.go`. It owns a `terminal.PseudoTerminalProcess` (the existing single-shot type), accumulates output bytes into a buffer, and on each `ConverseTurn(envelopeBytes, marker, timeout)` call writes the envelope to the PTY then reads forward until the marker token appears in the new bytes. The wrapper does NOT touch the existing PTY runtime, it composes around it. A `providerTransport` in the same package implements `peer.PeerTransport` by spawning a PTY via the existing `terminal.Runtime`, formatting envelopes via the relevant adapter's `FormatPrompt`, and delegating turn execution to `PersistentProcess`.
 
 **Tech Stack:** Go 1.22+, `creack/pty` (already a dependency via `internal/terminal`), standard library. No new third-party dependencies.
 
@@ -17,8 +17,8 @@
 - Integration test: two mock-agent subprocesses driven by `vitis converse`
 
 **Out of scope (deferred to later plans):**
-- Real `claude-code` / `codex` multi-turn support — TUI chrome detection is unreliable; the right approach is sidecar JSONL reads (claude-code writes its session log to `~/.claude/projects/.../*.jsonl`). That belongs in a separate Plan 2.5.
-- `TurnBoundaryDetector` adapter extension — defer until we have real provider integration in Plan 2.5
+- Real `claude-code` / `codex` multi-turn support, TUI chrome detection is unreliable; the right approach is sidecar JSONL reads (claude-code writes its session log to `~/.claude/projects/.../*.jsonl`). That belongs in a separate Plan 2.5.
+- `TurnBoundaryDetector` adapter extension, defer until we have real provider integration in Plan 2.5
 - `vitis converse-serve` and `vitis converse-tail` (Plan 4)
 - `stdio://` peer (Plan 5)
 - Judge terminator (Plan 3)
@@ -34,7 +34,7 @@
 - `internal/cli/run.go` is the canonical example of an existing CLI command. Mirror its structure: `flag.NewFlagSet`, `flag.ContinueOnError`, error handling, JSON output to stdout.
 - Test pattern: `testify/require`, table-driven, `-race`. Subprocess tests use `os/exec` to run the compiled mock-agent binary.
 - The mock-agent binary lives at `internal/testutil/mockagent/main.go`. It's currently single-shot (read one line, write one response, exit). Plan 2 extends it to support multi-turn mode triggered by env var.
-- Build the mock-agent in tests via `go build -o $TMPDIR/mockagent ./internal/testutil/mockagent`. Existing tests in `internal/orchestrator/integration_test.go` show the pattern — copy that helper.
+- Build the mock-agent in tests via `go build -o $TMPDIR/mockagent ./internal/testutil/mockagent`. Existing tests in `internal/orchestrator/integration_test.go` show the pattern, copy that helper.
 
 ---
 
@@ -47,14 +47,14 @@
 | `internal/peer/provider/provider.go` | Create | `Transport` (implements `peer.PeerTransport`) |
 | `internal/peer/provider/provider_test.go` | Create | End-to-end via real mock-agent subprocess |
 | `internal/testutil/mockagent/main.go` | Modify | Add `MOCK_MULTI_TURN=1` mode that loops reading turns and emitting responses + marker |
-| `internal/cli/converse.go` | Create | `ConverseCommand` — flag parsing, validation, broker construction, JSON output |
+| `internal/cli/converse.go` | Create | `ConverseCommand`, flag parsing, validation, broker construction, JSON output |
 | `internal/cli/converse_test.go` | Create | Flag validation, error paths |
 | `internal/cli/converse_e2e_test.go` | Create | End-to-end: `vitis converse` against two mock-agent subprocesses |
 | `cmd/vitis/main.go` | Modify | Route `converse` subcommand |
 
 ---
 
-## Task 0 — Pre-flight
+## Task 0, Pre-flight
 
 - [ ] **Step 1: Confirm baseline**
 
@@ -68,13 +68,13 @@ Expected: Plan 1 packages all PASS. If anything fails, STOP.
 
 ---
 
-## Task 1 — PersistentProcess wrapper
+## Task 1, PersistentProcess wrapper
 
 **Files:**
 - Create: `internal/peer/provider/persistent.go`
 - Test: `internal/peer/provider/persistent_test.go`
 
-**Behavior:** PersistentProcess wraps a `terminal.PseudoTerminalProcess`. On each `ConverseTurn(envelope, marker, timeout)` it (a) writes the envelope to the underlying PTY, (b) accumulates bytes from `Output()` into an internal buffer, (c) returns the slice from the post-write offset up to (but not including) the first occurrence of the marker token, and (d) advances the offset past the marker for the next turn. The PTY echo of the envelope (everything between the pre-write offset and the post-write offset) is dropped — the wrapper records the offset right after writing and only looks for the marker in newly-arrived bytes.
+**Behavior:** PersistentProcess wraps a `terminal.PseudoTerminalProcess`. On each `ConverseTurn(envelope, marker, timeout)` it (a) writes the envelope to the underlying PTY, (b) accumulates bytes from `Output()` into an internal buffer, (c) returns the slice from the post-write offset up to (but not including) the first occurrence of the marker token, and (d) advances the offset past the marker for the next turn. The PTY echo of the envelope (everything between the pre-write offset and the post-write offset) is dropped, the wrapper records the offset right after writing and only looks for the marker in newly-arrived bytes.
 
 The wrapper is its own goroutine pump: a single background goroutine consumes from `inner.Output()` into the buffer with a mutex; ConverseTurn waits on a `cond.Wait()` or a notification channel until the buffer contains the marker (or the deadline fires, or the process exits, or the context cancels).
 
@@ -461,7 +461,7 @@ git commit -m "feat(peer/provider): PersistentProcess wrapper for marker-based t
 
 ---
 
-## Task 2 — Multi-turn mock agent
+## Task 2, Multi-turn mock agent
 
 **Files:**
 - Modify: `internal/testutil/mockagent/main.go`
@@ -643,7 +643,7 @@ git commit -m "test(mockagent): add multi-turn mode for A2A integration tests"
 
 ---
 
-## Task 3 — providerTransport
+## Task 3, providerTransport
 
 **Files:**
 - Create: `internal/peer/provider/provider.go`
@@ -867,12 +867,12 @@ git commit -m "feat(peer/provider): Transport implementing PeerTransport over pe
 
 ---
 
-## Task 4 — Spawner adapter for `terminal.Runtime`
+## Task 4, Spawner adapter for `terminal.Runtime`
 
 **Files:**
 - Create: `internal/peer/provider/spawner.go`
 
-This is a tiny shim that bridges the `provider.Spawner` function type to the production `terminal.Runtime`. Lives in its own file because it's the only thing in the provider package that imports `internal/terminal` and `internal/adapter` — keeping it isolated lets unit tests skip the heavy imports.
+This is a tiny shim that bridges the `provider.Spawner` function type to the production `terminal.Runtime`. Lives in its own file because it's the only thing in the provider package that imports `internal/terminal` and `internal/adapter`, keeping it isolated lets unit tests skip the heavy imports.
 
 The shim resolves the URI scheme: `provider:claude-code` → `claudecode.NewAdapter()`, `provider:codex` → `codex.NewAdapter()`, `provider:mock` → uses the mock-agent binary path from `MOCK_BIN` env var (test-only).
 
@@ -998,7 +998,7 @@ func (m *mockProviderAdapter) ExtractResponse(_ adapter.ExtractionContext) adapt
 }
 ```
 
-NOTE: the `ReadyPattern()` return type in the existing `adapter.Adapter` interface is `*regexp.Regexp` (not `any`). The plan executor MUST replace `any` with `*regexp.Regexp` and add the `regexp` import. The reason this plan uses `any` is to flag the line for the executor to check the actual interface signature in `internal/adapter/adapter.go` and write the matching type — the spec doc had a slightly older version of the interface.
+NOTE: the `ReadyPattern()` return type in the existing `adapter.Adapter` interface is `*regexp.Regexp` (not `any`). The plan executor MUST replace `any` with `*regexp.Regexp` and add the `regexp` import. The reason this plan uses `any` is to flag the line for the executor to check the actual interface signature in `internal/adapter/adapter.go` and write the matching type, the spec doc had a slightly older version of the interface.
 
 - [ ] **Step 2: Verify the actual `adapter.Adapter` interface and adjust**
 
@@ -1027,7 +1027,7 @@ git commit -m "feat(peer/provider): URI-resolving Spawner that bridges to termin
 
 ---
 
-## Task 5 — `vitis converse` CLI command
+## Task 5, `vitis converse` CLI command
 
 **Files:**
 - Create: `internal/cli/converse.go`
@@ -1436,7 +1436,7 @@ git commit -m "feat(cli): add vitis converse command with validation and inproc 
 
 ---
 
-## Task 6 — Wire `converse` into `cmd/vitis/main.go`
+## Task 6, Wire `converse` into `cmd/vitis/main.go`
 
 **Files:**
 - Modify: `cmd/vitis/main.go`
@@ -1496,7 +1496,7 @@ git commit -m "feat(cli): wire vitis converse subcommand into main"
 
 ---
 
-## Task 7 — End-to-end integration test
+## Task 7, End-to-end integration test
 
 **Files:**
 - Create: `internal/cli/converse_e2e_test.go`
@@ -1562,7 +1562,7 @@ func TestConverseEndToEndSentinelTermination(t *testing.T) {
 	}, &stdout, &stderr)
 	require.Equal(t, 0, code, "stderr: %s", stderr.String())
 
-	// Find the FinalResult JSON object — stdout begins with the
+	// Find the FinalResult JSON object, stdout begins with the
 	// (suppressed) stream and ends with the indented FinalResult.
 	out := strings.TrimSpace(stdout.String())
 	dec := json.NewDecoder(strings.NewReader(out))
@@ -1624,7 +1624,7 @@ git commit -m "test(cli): end-to-end vitis converse test against multi-turn mock
 
 ---
 
-## Task 8 — Whole-suite green check
+## Task 8, Whole-suite green check
 
 - [ ] **Step 1: Run race-detector test suite, single-threaded for PTY tests**
 
@@ -1632,7 +1632,7 @@ git commit -m "test(cli): end-to-end vitis converse test against multi-turn mock
 go test -race -count=1 -p 1 -timeout 120s ./...
 ```
 
-Expected: every package PASSES except known pre-existing failures in `internal/orchestrator` (TestRunHappyPath and friends — pre-existing PTY timing issues, NOT introduced by Plan 2).
+Expected: every package PASSES except known pre-existing failures in `internal/orchestrator` (TestRunHappyPath and friends, pre-existing PTY timing issues, NOT introduced by Plan 2).
 
 - [ ] **Step 2: Vet and build**
 
@@ -1655,12 +1655,12 @@ git commit -m "chore(plan): mark A2A plan 2 PTY+CLI execution complete"
 
 ## Self-Review
 
-- **Spec coverage:** Plan 2 implements §3 envelope-on-the-wire (verified via PTY echo handling), §4 PeerTransport for `provider:` URIs (with marker-based detection only — sidecar deferred), §5 Broker wiring with real subprocess peers, §7 CLI surface for the inproc-bus single-machine case. Plan 2 deliberately omits: §3 store/postgres conversation persistence (Plan 3), §6 NATS bus (Plan 4), §4 `vitis://` and `stdio://` transports (Plans 4/5), and judge terminator (Plan 3).
-- **Placeholder scan:** Task 5 Step 3 deliberately ships a placeholder `streamTurnsTo` so the file compiles before Step 4 replaces it with the real implementation. Step 4 has the full replacement code. Task 4 Step 1 has a `ReadyPattern() any` that the executor MUST adjust to `*regexp.Regexp` per the comment in that step. These are explicit, single-step gaps with replacement code provided in the next step — not abandoned TODOs.
+- **Spec coverage:** Plan 2 implements §3 envelope-on-the-wire (verified via PTY echo handling), §4 PeerTransport for `provider:` URIs (with marker-based detection only, sidecar deferred), §5 Broker wiring with real subprocess peers, §7 CLI surface for the inproc-bus single-machine case. Plan 2 deliberately omits: §3 store/postgres conversation persistence (Plan 3), §6 NATS bus (Plan 4), §4 `vitis://` and `stdio://` transports (Plans 4/5), and judge terminator (Plan 3).
+- **Placeholder scan:** Task 5 Step 3 deliberately ships a placeholder `streamTurnsTo` so the file compiles before Step 4 replaces it with the real implementation. Step 4 has the full replacement code. Task 4 Step 1 has a `ReadyPattern() any` that the executor MUST adjust to `*regexp.Regexp` per the comment in that step. These are explicit, single-step gaps with replacement code provided in the next step, not abandoned TODOs.
 - **Type consistency:** `provider.Spawner` signature matches `provider.New` field; `Transport.Start` matches `peer.PeerTransport.Start`; `terminator.NewSentinel` matches its Plan 1 declaration; `inproc.New` matches the Plan 1 backend; `conversation.BrokerDeps` and `NewBroker` match Plan 1; `bus.TopicTurn` matches Plan 1.
 - **Known imperfections that the executor must fix at integration time:**
-  1. `mockProviderAdapter` stub method signatures must match the real `adapter.Adapter` interface — verify with `grep -n "type Adapter interface" -A 30 internal/adapter/adapter.go` before writing.
-  2. `util.NewID` is called from converse.go — verify the helper exists in `internal/util/`. If it doesn't, use a small inline helper or copy the equivalent from `internal/cli/run.go`.
+  1. `mockProviderAdapter` stub method signatures must match the real `adapter.Adapter` interface, verify with `grep -n "type Adapter interface" -A 30 internal/adapter/adapter.go` before writing.
+  2. `util.NewID` is called from converse.go, verify the helper exists in `internal/util/`. If it doesn't, use a small inline helper or copy the equivalent from `internal/cli/run.go`.
   3. The `--peer-a-opt env_KEY=val` mechanism in `mockProviderAdapter.BuildSpawnSpec` reads `spec.Options["env_*"]` and forwards them as env vars; the test uses this. If the executor finds a simpler convention is preferable, adjust both call sites.
 
 <!-- end of plan 2 -->

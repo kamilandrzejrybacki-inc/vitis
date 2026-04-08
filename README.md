@@ -1,163 +1,130 @@
 # Vitis
 
-**Vitis** is a local-first orchestrator for driving AI agent CLIs (Claude Code, Codex, …) through a real PTY. It started as a single-prompt-and-extract harness and has grown into a multi-turn agent-to-agent (A2A) broker with pluggable token-efficiency layers.
+Vitis is a local PTY orchestrator for AI agent CLIs (Claude Code, Codex, others). It runs in two modes:
 
-In one sentence: **Vitis lets two interactive AI agents have a structured, persistent, observable conversation through your terminal — locally, deterministically, and cheaply.**
+- `vitis run` sends one prompt to an agent and captures the response.
+- `vitis converse` drives two long-lived agents through alternating turns until a sentinel, judge verdict, or max-turns cap fires.
 
-```
-┌──────────────┐  envelope    ┌──────────────────────┐  envelope    ┌──────────────┐
-│   Peer A     │  ──────────► │  Vitis Conversation  │  ──────────► │   Peer B     │
-│  (claude /   │              │       Broker         │              │  (claude /   │
-│   codex /    │  ◄────────── │  • alternation       │  ◄────────── │   codex /    │
-│   mock /     │  reply       │  • marker injection  │  reply       │   mock /     │
-│   portkey)   │              │  • sentinel/judge    │              │   portkey)   │
-└──────────────┘              │  • event bus         │              └──────────────┘
-                              └──────────────────────┘
+Both modes share the same PTY runtime, persistence layer, and JSON output shape, so anything you can inspect from a single-shot run also works on a multi-turn conversation.
+
+## Install
+
+```bash
+go install github.com/kamilandrzejrybacki-inc/vitis/cmd/vitis@latest
 ```
 
-## What it does
+Or build from source:
 
-Two execution modes, both backed by the same PTY runtime and persistence layer:
+```bash
+git clone https://github.com/kamilandrzejrybacki-inc/vitis.git
+cd vitis
+go build -o vitis ./cmd/vitis
+```
 
-| Mode | Command | Purpose |
-|---|---|---|
-| **Single-shot** | `vitis run` | Send one prompt, capture the agent's response, exit. |
-| **A2A multi-turn** | `vitis converse` | Drive two long-lived peer agents through alternating turns until a sentinel, judge, or max-turns cap fires. |
-
-Plus inspection helpers:
-
-| Command | Purpose |
-|---|---|
-| `vitis peek --session-id <id>` | Read back turns from a recorded session. |
-| `vitis doctor [--provider <id>]` | Verify the local environment: provider availability, version, and rtk integration status. |
+For production use you need a real `claude` or `codex` install on your `PATH`. For tests and demos, Vitis ships a mock agent you can substitute via `VITIS_CLAUDE_BINARY`.
 
 ## Quick start
 
+A single-shot run against Claude Code:
+
 ```bash
-# 1. Build it
-go build -o vitis ./cmd/vitis
+vitis run --provider claude-code --prompt "what is 2+2?"
+```
 
-# 2. Single-shot run against real Claude Code
-./vitis run --provider claude-code --prompt "what is 2+2?"
+A two-peer conversation that ends when either side emits the sentinel:
 
-# 3. Two-peer A2A conversation, alternating until <<END>>
-./vitis converse \
+```bash
+vitis converse \
   --peer-a provider:claude-code \
   --peer-b provider:claude-code \
   --seed-a "You are a Go expert. Briefly explain channels. End with <<END>>." \
   --seed-b "You are a critic. Find one flaw. End with <<END>>." \
   --max-turns 6 \
-  --terminator sentinel \
-  --style caveman-full
-
-# 4. Check what's wired up
-./vitis doctor --provider claude-code | jq .
+  --terminator sentinel
 ```
 
-## A2A features in one table
-
-| Feature | Flag | Default | Notes |
-|---|---|---|---|
-| Peer URI scheme | `--peer-a`, `--peer-b` | required | `provider:claude-code`, `provider:codex`, `provider:mock` (test builds), future `vitis://`, `stdio://` |
-| Per-peer options | `--peer-a-opt key=value` (repeatable) | — | `model`, `reasoning-effort`, `cwd`, `home`, allowlisted `env_KEY=value` |
-| Single seed | `--seed "..."` | — | Same starter prompt for both peers |
-| Asymmetric seeds | `--seed-a "..." --seed-b "..."` | — | Per-peer briefings (debate, role-play, etc.) |
-| Opener | `--opener a\|b` | `a` | Which peer speaks first |
-| Hard turn cap | `--max-turns N` | 50 | Always-on safety rail; range 1..500 |
-| Per-turn timeout | `--per-turn-timeout SEC` | 300 | Max seconds for any single peer reply; capped at 3600 |
-| Overall timeout | `--overall-timeout SEC` | `max-turns × per-turn-timeout` | Capped at 86400 (24h) |
-| Terminator | `--terminator sentinel` | sentinel | `judge` arrives in plan 3 |
-| Sentinel token | `--sentinel "<<END>>"` | `<<END>>` | Line-anchored match (peer must emit on its own line) |
-| Reply style | `--style caveman-{lite,full,ultra}` | `normal` | Embedded [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) rules; ~75% reply-token compression |
-| Bus backend | `--bus inproc` | inproc | NATS arrives in plan 4 |
-| Log backend | `--log-backend file` | file | Postgres arrives in plan 3 |
-| Working directory | `--working-directory PATH` | cwd | Validated against path-traversal |
-| Stream turns | `--stream-turns` | true | Emit each turn as JSONL on stdout during the run |
-
-## Token-efficiency stack
-
-Vitis itself doesn't compress tokens — but it cleanly composes with three external tools that do, each tackling a different layer of the conversation flow:
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                                                                          │
-│   Tool-call OUTPUT                  ┌──────────────┐                     │
-│   compressed by rtk    ────────────►│ Agent input  │◄──── Other peer's   │
-│   (60-90% on shell)                 │   context    │      reply (caveman │
-│                                     └──────┬───────┘      style; ~75%   │
-│                                            │              compression)   │
-│                                            ▼                             │
-│                                     ┌──────────────┐                     │
-│                                     │   Inference  │   (cheap upstream:  │
-│                                     │   via free   │    Groq, Deepseek,  │
-│                                     │   provider   │    NVIDIA NIM via   │
-│                                     │   gateway    │    Portkey gateway) │
-│                                     └──────┬───────┘                     │
-│                                            ▼                             │
-│                                     ┌──────────────┐                     │
-│                                     │ Reply output │ ──► Vitis broker    │
-│                                     │   shrunk by  │    forwards as next │
-│                                     │   caveman    │    envelope         │
-│                                     └──────────────┘                     │
-└──────────────────────────────────────────────────────────────────────────┘
-```
-
-| Layer | Tool | Repo | What it shrinks |
-|---|---|---|---|
-| Tool call **input** to agent | [rtk](https://github.com/rtk-ai/rtk) | rtk-ai/rtk | git/ls/cat/grep/test runners; ~60-90% |
-| Model **output** from agent | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee/caveman | Filler, articles, hedging in replies; ~75% |
-| LLM provider | [portkeyagent](https://github.com/kamilrybacki/portkeyagent) | kamilrybacki/portkeyagent | Routes to free upstream models via the [Portkey AI Gateway](https://github.com/Portkey-AI/gateway) |
-
-Combined effect on a multi-turn A2A run: roughly **3-4× more turns within a fixed context budget**, against zero-cost LLMs, with no broker code changes.
-
-Setup helpers in [`tests/manual/`](tests/manual/) wire all three:
+Check the local environment, including which providers are installed and whether the optional rtk hook is active:
 
 ```bash
-./tests/manual/setup_rtk.sh                  # install rtk + register hook for both providers
-go install github.com/kamilrybacki/portkeyagent@latest
-# Edit tests/manual/.portkey.env with your Portkey credentials
-./tests/manual/13_converse_portkey.sh        # real conversation through Portkey
-./tests/manual/14_rtk_integration.sh         # verify rtk hook is active
-./tests/manual/15_converse_caveman.sh        # measure caveman compression delta
+vitis doctor --provider claude-code | jq .
 ```
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `vitis run` | One prompt, one response, exit. Writes a JSON report and persists the session. |
+| `vitis converse` | Multi-turn agent-to-agent conversation. Strict alternation between two peers. |
+| `vitis peek --session-id <id>` | Read back turns from a recorded session or conversation. |
+| `vitis doctor [--provider <id>]` | Verify the local environment. Reports provider availability, version, and rtk integration status. |
+
+## A2A conversation flags
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--peer-a`, `--peer-b` | required | Peer URI: `provider:claude-code`, `provider:codex`, `provider:mock` (test builds), `vitis://` (planned), `stdio://` (planned) |
+| `--peer-a-opt key=value` | repeatable | Per-peer options. Recognised keys include `model`, `reasoning-effort`, `cwd`, `home`, allowlisted `env_KEY=value`. |
+| `--seed "..."` | one of seed/seed-a+b required | Same opening prompt for both peers |
+| `--seed-a "..." --seed-b "..."` | alternative | Asymmetric per-peer seeds for debate or role-play |
+| `--opener a\|b` | `a` | Which peer speaks first |
+| `--max-turns N` | 50 | Hard cap, range 1..500 |
+| `--per-turn-timeout SEC` | 300 | Per-turn timeout, max 3600 |
+| `--overall-timeout SEC` | `max-turns × per-turn-timeout` | Whole-conversation timeout, max 86400 |
+| `--terminator` | `sentinel` | `judge` arrives in Plan 3 |
+| `--sentinel "<<END>>"` | `<<END>>` | Line-anchored token. Either peer ends the conversation by emitting it on its own line. |
+| `--style` | `normal` | `caveman-lite`, `caveman-full`, `caveman-ultra` embed reply-style instructions that compress responses by roughly 60 to 75 percent. |
+| `--bus` | `inproc` | NATS arrives in Plan 4 |
+| `--log-backend` | `file` | Postgres arrives in Plan 3 |
+| `--working-directory` | cwd | Validated against path traversal |
+| `--stream-turns` | true | Emit each turn as JSONL on stdout while the conversation runs |
+
+## How it stays cheap
+
+Vitis itself does not compress anything. It composes with three external tools, each of which targets a different layer of the conversation:
+
+`rtk` ([rtk-ai/rtk](https://github.com/rtk-ai/rtk)) sits on the agent side and rewrites common shell commands like `git status`, `cat`, `grep`, and test runners so the agent receives compact output instead of verbose logs. Vitis detects rtk via `vitis doctor`, and the `tests/manual/setup_rtk.sh` helper installs the PreToolUse hook for both Claude Code and Codex.
+
+`caveman` ([JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman)) is a prompt-only style that tells the model to drop filler words and articles while preserving code blocks, error messages, and security warnings verbatim. Vitis embeds the canonical caveman rules in `internal/conversation/style.go`, so `--style caveman-full` works without installing the upstream package.
+
+`portkeyagent` ([kamilrybacki/portkeyagent](https://github.com/kamilrybacki/portkeyagent)) is a small CLI shim that fronts the [Portkey AI Gateway](https://github.com/Portkey-AI/gateway). You point `VITIS_CLAUDE_BINARY` at it and Vitis sends conversation traffic to free upstream providers (Groq, Deepseek, NVIDIA NIM) instead of paid Anthropic or OpenAI accounts.
+
+None of these are required. Vitis works without all three; the integration is detect-and-recommend.
 
 ## Status
 
-| Layer | Implemented | In design / planned |
-|---|---|---|
-| PTY runtime | Single-shot + persistent (multi-turn) | — |
-| Adapters | claude-code, codex (single-shot adapter + persistent-mode bypass) | sidecar JSONL detection (Plan 2.5) |
-| Conversation broker | Full state machine, strict alternation, max-turns cap, control draining, peer-crash handling | — |
-| Bus | In-process channel fan-out (`inproc`) | NATS (Plan 4) |
-| Terminator | Sentinel (line-anchored) | Judge with bus + provider modes (Plan 3) |
-| Peer transport | `provider:` (local PTY), `mock` (test-only) | `vitis://` remote (Plan 4), `stdio://` framed (Plan 5) |
-| Persistence | File store (sessions + conversations + raw events) | Postgres conversations (Plan 3) |
-| CLI | `run`, `peek`, `doctor`, `converse` | `converse-serve`, `converse-tail` (Plan 4) |
-| Reply style | `normal`, `caveman-{lite,full,ultra}` | per-peer style override |
-| rtk integration | Doctor probes both providers; setup helper installs hooks | — |
-| Observability | JSONL stream of turns; FinalResult JSON | NATS-based fan-out for live tail (Plan 4) |
-| Pre-existing flake | `internal/orchestrator.TestRunHappyPath` (PTY timing race, predates A2A work) | tracked separately |
+| Component | State |
+|---|---|
+| PTY runtime, single-shot and persistent | shipped |
+| Adapters: claude-code, codex | shipped |
+| Conversation broker, strict alternation, max-turns cap | shipped |
+| In-process bus | shipped |
+| Sentinel terminator (line-anchored) | shipped |
+| Provider peer transport | shipped |
+| File-store persistence (sessions and conversations) | shipped |
+| `vitis run`, `peek`, `doctor`, `converse` | shipped |
+| Reply style: `caveman-{lite,full,ultra}` | shipped |
+| rtk integration (doctor + setup helper) | shipped |
+| Sidecar JSONL detection for real claude-code multi-turn | Plan 2.5 |
+| Judge terminator | Plan 3 |
+| Postgres backend for conversations | Plan 3 |
+| NATS bus, remote `vitis://` peers | Plan 4 |
+| `stdio://` peer | Plan 5 |
 
 ## Test layout
 
-| Layer | Where | How |
-|---|---|---|
-| **Unit tests** (Go `*_test.go`) | alongside production code in `internal/...` | `go test -race -count=1 ./internal/...` |
-| **CLI validation tests** | `internal/cli/*_test.go` | flag parsing, error paths, exit codes |
-| **End-to-end CLI tests** | `internal/cli/*_e2e_test.go` | drive `RunCommand` / `ConverseCommand` against the bundled mock agent |
-| **Orchestrator integration tests** | `internal/orchestrator/integration_test.go` | full single-shot path through every `MOCK_MODE` |
-| **Top-level integration test** | `tests/integration/run_integration_test.go` | exercises the compiled `vitis` binary |
-| **Manual test suite** | `tests/manual/*.sh` | 15 scripts covering doctor, run, converse, persistence, security, rtk, caveman, portkey — see [`tests/manual/README.md`](tests/manual/README.md) |
-| **Acceptance docs** | `tests/acceptance/*.md` | manual scenarios for real Claude/Codex installs |
+Vitis follows the standard Go convention: unit tests live next to the code they cover under `internal/...`. Run the full suite with the race detector:
 
 ```bash
-# Whole-suite green check (sequential to avoid PTY contention)
 go test -race -count=1 -p 1 -timeout 300s ./...
+```
 
-# Manual suite, mock-only (no real LLM calls)
+The `tests/` tree holds the higher layers. `tests/integration/` exercises the compiled `vitis` binary end-to-end against the bundled mock agent. `tests/manual/` is a numbered shell script suite (15 scripts) covering doctor, run, converse, persistence, security hardening, rtk, caveman, and Portkey integration. Each script is independent and either auto-skips or fails cleanly. See [`tests/manual/README.md`](tests/manual/README.md) for the full catalog. `tests/acceptance/` is markdown documentation for manual scenarios that need a real Claude Code or Codex install.
+
+```bash
+# Mock-only sweep, no real LLM calls, around 30 seconds total
 ./tests/manual/run_all.sh --quick
 
-# Manual suite, full (uses real LLMs if installed; auto-skips otherwise)
+# Full sweep, with real-provider tests if installed
 ./tests/manual/run_all.sh
 ```
 
@@ -165,111 +132,80 @@ go test -race -count=1 -p 1 -timeout 300s ./...
 
 ```
 vitis/
-├── cmd/
-│   ├── vitis/             main entry point (run, peek, doctor, converse)
-│   └── screendebug/       optional helper for debugging the screen package
+├── cmd/vitis/             entry point: run, peek, doctor, converse
 ├── internal/
-│   ├── adapter/           Adapter interface + claude-code & codex implementations
-│   ├── bus/               Bus interface + inproc channel-fanout backend
-│   ├── cli/               run, peek, doctor, converse commands + rtk detection
+│   ├── adapter/           Adapter interface, claude-code and codex implementations
+│   ├── bus/               Bus interface, in-process channel-fanout backend
+│   ├── cli/               CLI commands plus rtk detection
 │   ├── conversation/      Broker state machine, envelope builder, briefing,
 │   │                      reply style (caveman embedding), marker generator
-│   ├── model/             Pure data types (Session, Turn, Conversation, ...)
+│   ├── model/             Pure data types
 │   ├── orchestrator/      Single-shot orchestrator (vitis run path)
-│   ├── peer/              PeerTransport interface + provider/mock implementations
-│   │   ├── mock/          scripted in-memory transport for unit tests
-│   │   └── provider/      local-PTY transport with PersistentProcess wrapper
+│   ├── peer/              PeerTransport interface plus provider and mock implementations
 │   ├── store/             Store interface, file backend, postgres stub
 │   ├── terminal/          PTY runtime, ANSI normalize, screen emulator
-│   ├── terminator/        Terminator interface + sentinel implementation
+│   ├── terminator/        Terminator interface, sentinel implementation
 │   ├── testutil/          mockagent binary used by every E2E test
-│   └── util/              helpers (id generation, LookPath wrapper)
-├── docs/
-│   ├── superpowers/
-│   │   ├── specs/         design specs (the source of truth for behavior)
-│   │   ├── plans/         implementation plans, executed via subagents
-│   │   └── reviews/       compiled review findings
-│   └── ...
-└── tests/
-    ├── acceptance/        manual scenarios for real Claude Code
-    ├── integration/       Go integration test against the compiled binary
-    └── manual/            shell scripts: 01_doctor through 15_converse_caveman
+│   └── util/              ID generation, LookPath wrapper
+├── docs/superpowers/      design specs, implementation plans, review reports
+└── tests/                 acceptance docs, integration tests, manual scripts
 ```
 
-## Design philosophy
+## Design notes
 
-- **Local-first.** Vitis is designed for one user on one machine. It is **not** a hosted brokering service for consumer Claude accounts. Hosted/distributed mode is on the roadmap (NATS bus, Plan 4) but is opt-in and operator-owned.
-- **PTY is the source of truth.** Raw PTY bytes are captured verbatim; normalized text is a derived view used for parsing. Audits and debugging always trace back to the raw stream.
-- **Honest status classification.** Vitis never auto-answers permission prompts, auth prompts, or rate-limit messages. It detects them and surfaces them as terminal run statuses (`blocked_on_input`, `auth_required`, `rate_limited`) — the operator decides what to do.
-- **Additive integrations only.** rtk, caveman, and portkeyagent live outside Vitis. The integration code in `internal/cli/rtk.go`, `internal/conversation/style.go`, and `tests/manual/setup_rtk.sh` is purely detect-and-recommend; nothing in the broker depends on any of them being present.
-- **Pluggable everything.** Bus, peer transport, terminator, store — every architectural seam is an interface. Replacing the inproc bus with NATS, or sentinel with judge, is one struct away.
+Vitis is built for one user on one machine. Hosted brokering of consumer Claude accounts is explicitly out of scope. The raw PTY byte stream is the source of truth for every recording, and normalized text is treated as a derived view used only for parsing.
 
-## Safety boundary
+Vitis never auto-answers permission, authentication, or rate-limit prompts from the spawned agents. When the observer detects one, it surfaces the corresponding terminal status (`blocked_on_input`, `auth_required`, `rate_limited`) and lets the operator decide what to do.
 
-- Prefer local one-user operation.
-- Do not position Vitis as a hosted proxy for consumer Claude accounts.
-- Do not auto-answer auth, permission, or rate-limit prompts.
-- Treat raw PTY bytes as the source of truth for audits and debugging.
-- Sensitive credentials (Portkey, provider API keys) should live in Vault or the equivalent — never in committed config. The `tests/manual/.portkey.env` pattern uses chmod 0600 + gitignore for machine-local keys.
-- The `provider:mock` URI is gated behind a test-only registration hook (`spawner_mock_test.go`); release binaries refuse it as an unknown provider.
+Every architectural seam is an interface: bus, peer transport, terminator, store. Replacing the in-process bus with NATS, or sentinel with a judge, is a constructor swap.
 
-## Where to read next
+## Dependencies and acknowledgements
 
-| Document | What it covers |
-|---|---|
-| [`docs/superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md`](docs/superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md) | The canonical A2A design spec — broker, bus, peer transport, terminator, error model |
-| [`docs/superpowers/specs/2026-04-03-vitis-agent-bridge-design.md`](docs/superpowers/specs/2026-04-03-vitis-agent-bridge-design.md) | The original v1 single-shot design that everything else builds on |
-| [`docs/superpowers/plans/2026-04-07-a2a-plan-1-foundation.md`](docs/superpowers/plans/2026-04-07-a2a-plan-1-foundation.md) | Implementation plan for the broker / bus / sentinel foundation |
-| [`docs/superpowers/plans/2026-04-07-a2a-plan-2-pty-cli.md`](docs/superpowers/plans/2026-04-07-a2a-plan-2-pty-cli.md) | Implementation plan for the persistent PTY runtime + CLI |
-| [`docs/superpowers/reviews/2026-04-07-a2a-review-findings.md`](docs/superpowers/reviews/2026-04-07-a2a-review-findings.md) | Consolidated findings from four parallel review passes; every HIGH and MEDIUM addressed |
-| [`tests/manual/README.md`](tests/manual/README.md) | Manual test suite with 15 scripts, the rtk + caveman + portkey integration recipes |
-| [`tests/acceptance/README.md`](tests/acceptance/README.md) | Acceptance test rules for real Claude Code runs |
+Runtime Go modules:
 
-## Dependencies & acknowledgements
-
-Vitis stands on the shoulders of several open-source projects. Where the integration is non-trivial it's documented inline; this section is the canonical credit list.
-
-### Runtime dependencies (Go modules)
-
-| Module | Used for | License |
+| Module | Purpose | License |
 |---|---|---|
-| [`github.com/creack/pty`](https://github.com/creack/pty) | The pseudo-terminal that every spawned agent runs in | MIT |
-| [`github.com/stretchr/testify`](https://github.com/stretchr/testify) | Test assertions and fixtures across the unit suite | MIT |
-| [`github.com/jackc/pgx/v5`](https://github.com/jackc/pgx) | Postgres driver for the (Plan 3) conversation persistence backend | MIT |
-| Go standard library | Everything else — net/http for portkeyagent, encoding/json, os/exec, sync, context, … | BSD-3 |
+| [creack/pty](https://github.com/creack/pty) | The pseudo-terminal that every spawned agent runs in | MIT |
+| [stretchr/testify](https://github.com/stretchr/testify) | Test assertions and fixtures | MIT |
+| [jackc/pgx/v5](https://github.com/jackc/pgx) | Postgres driver for the planned conversation backend | MIT |
 
-### Companion projects (developed alongside Vitis)
+Companion projects developed alongside Vitis:
 
-| Project | Repo | What it does | License |
-|---|---|---|---|
-| **portkeyagent** | [kamilrybacki/portkeyagent](https://github.com/kamilrybacki/portkeyagent) | Tiny CLI wrapper that fronts the Portkey LLM gateway and behaves like an interactive AI agent CLI. Built specifically as a drop-in `CLANK_CLAUDE_BINARY` replacement so Vitis manual tests can run against free upstream LLMs (Groq, Deepseek, NVIDIA NIM) without burning vendor quota. | MIT |
+| Project | Purpose | License |
+|---|---|---|
+| [kamilrybacki/portkeyagent](https://github.com/kamilrybacki/portkeyagent) | CLI shim that fronts the Portkey LLM gateway. Built as a `VITIS_CLAUDE_BINARY` substitute so manual tests can run against free upstream LLMs. | MIT |
 
-### Token-efficiency stack (third-party tools that compose with Vitis)
+Token-efficiency tools that Vitis detects and recommends:
 
-These tools are detected and recommended by `vitis doctor` but never required. The integration is purely additive — Vitis works without any of them.
+| Project | Purpose | License |
+|---|---|---|
+| [rtk-ai/rtk](https://github.com/rtk-ai/rtk) | CLI proxy that compresses common shell command outputs by 60 to 90 percent. | MIT |
+| [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) | A telegraphic reply style that cuts model output by roughly 75 percent while preserving technical accuracy. The MIT-licensed canonical rules are embedded in `internal/conversation/style.go`. | MIT |
+| [Portkey-AI/gateway](https://github.com/Portkey-AI/gateway) | Open-source LLM gateway that routes to upstream providers via a single OpenAI-compatible API. portkeyagent uses it. | MIT |
 
-| Project | Repo | What it does | License |
-|---|---|---|---|
-| **rtk** | [rtk-ai/rtk](https://github.com/rtk-ai/rtk) | "Rust Token Killer" — a CLI proxy that compresses common shell command outputs (git, ls, cat, grep, test runners, ...) by 60-90% before they reach the agent's context. Vitis detects rtk via `clank doctor` and the `tests/manual/setup_rtk.sh` helper installs the PreToolUse hook for both Claude Code and Codex. Rich `internal/cli/rtk.go` for the integration layer. | MIT |
-| **caveman** | [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) | A Claude Code skill that nudges the model toward telegraphic ("caveman") replies, cutting output tokens by ~75% while preserving full technical accuracy. The MIT-licensed canonical rules from `skills/caveman/SKILL.md` are embedded directly in `internal/conversation/style.go` so Vitis users get the compression with zero external installs via `--style caveman-{lite,full,ultra}`. Code blocks, error messages, and security warnings are explicitly preserved per the canonical rules. | MIT |
-| **Portkey AI Gateway** | [Portkey-AI/gateway](https://github.com/Portkey-AI/gateway) | Open-source LLM gateway that routes to upstream providers (Groq, OpenAI, Anthropic, NVIDIA NIM, Deepseek, ...) via a single OpenAI-compatible API. The portkeyagent companion uses it via `x-portkey-provider` to test Vitis against free LLMs. | MIT |
-
-### AI agent CLIs Vitis drives
+AI agent CLIs Vitis drives:
 
 | Project | Notes |
 |---|---|
-| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Anthropic's official CLI for Claude. The canonical real-world peer for `vitis converse`. The `internal/adapter/claudecode` package owns the spawn spec, observer heuristics, and sidecar JSONL handling. |
-| [Codex CLI](https://github.com/openai/codex) | OpenAI's Codex command-line agent. Vitis spawns the interactive form (no `exec` subcommand) for converse mode per the [P1-1 fix](docs/superpowers/reviews/2026-04-07-a2a-review-findings.md). |
-| (Future) [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Cursor](https://cursor.com), [Cline](https://cline.bot), [Windsurf](https://codeium.com/windsurf) | Same `provider:` URI scheme; adapter implementations are pluggable. |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Anthropic's official CLI for Claude. The canonical real-world peer for `vitis converse`. |
+| [Codex CLI](https://github.com/openai/codex) | OpenAI's Codex command-line agent. Vitis spawns the interactive form for converse mode. |
 
-### Inspiration & prior art
+Inspiration and prior art:
 
-- **botl** ([repo](https://github.com/kamilrybacki-inc/botl)) — The Go CLI that runs Claude Code in ephemeral Docker containers; same author, similar PTY-driving philosophy, complementary use case (Vitis is for orchestration, botl is for sandboxing).
-- **superpowers / everything-claude-code skill ecosystem** — The `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:executing-plans`, and `superpowers:subagent-driven-development` skills shaped how the entire feature was designed and built. Every spec and plan in `docs/superpowers/` came from those workflows.
-- **The viral "talk like caveman" observation** that became JuliusBrussee/caveman, and the [March 2026 paper on brevity constraints reversing performance hierarchies](https://arxiv.org/abs/2604.00025) that backs it up.
-
-If you build on Vitis or extend it, please keep the credit chain visible — every project here was the right idea at the right time.
+- [botl](https://github.com/kamilrybacki-inc/botl), the Go CLI that runs Claude Code in ephemeral Docker containers. Same author, complementary use case (Vitis is for orchestration, botl is for sandboxing).
+- The `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:subagent-driven-development` skills shaped how the entire feature was designed and built. Every spec and plan in `docs/superpowers/` came from those workflows.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT. See [`LICENSE`](LICENSE).
+
+## Where to read more
+
+| Document | Contents |
+|---|---|
+| [`docs/superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md`](docs/superpowers/specs/2026-04-07-vitis-a2a-conversations-design.md) | The canonical A2A design spec: broker, bus, peer transport, terminator, error model. |
+| [`docs/superpowers/specs/2026-04-03-vitis-agent-bridge-design.md`](docs/superpowers/specs/2026-04-03-vitis-agent-bridge-design.md) | The original v1 single-shot design that everything else builds on. |
+| [`docs/superpowers/plans/2026-04-07-a2a-plan-1-foundation.md`](docs/superpowers/plans/2026-04-07-a2a-plan-1-foundation.md) | Implementation plan for the broker, bus, and sentinel foundation. |
+| [`docs/superpowers/plans/2026-04-07-a2a-plan-2-pty-cli.md`](docs/superpowers/plans/2026-04-07-a2a-plan-2-pty-cli.md) | Implementation plan for the persistent PTY runtime and CLI. |
+| [`docs/superpowers/reviews/2026-04-07-a2a-review-findings.md`](docs/superpowers/reviews/2026-04-07-a2a-review-findings.md) | Consolidated findings from the parallel review passes. |
+| [`tests/manual/README.md`](tests/manual/README.md) | Manual test suite catalog with the rtk and caveman setup recipes. |
