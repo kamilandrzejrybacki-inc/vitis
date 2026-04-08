@@ -154,6 +154,10 @@ func (s *Store) Close() error { return nil }
 // carries v2 fields (Peers / Seeds / OpenerID). Pure 2-peer legacy
 // writes leave SchemaVersion at 0 so the on-disk JSON omits the field
 // and remains byte-compatible with existing v1 fixtures and tests.
+//
+// Pure function: takes a value, returns a copy. No I/O, no locking,
+// no concurrency concerns — file-store callers hold s.mu around their
+// own write paths and this helper does not need to.
 func stampSchemaVersion(conv model.Conversation) model.Conversation {
 	if conv.SchemaVersion != 0 {
 		return conv
