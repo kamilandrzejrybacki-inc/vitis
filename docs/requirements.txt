@@ -1,0 +1,8 @@
+# MkDocs Material site dependencies for the published Vitis docs.
+# Pinned with patch-level wildcards so security fixes flow in but breaking
+# changes do not. The .github/workflows/docs.yml workflow installs from this
+# file and uses it as the pip cache key.
+
+mkdocs-material==9.5.*
+mkdocs-awesome-pages-plugin==2.9.*
+pymdown-extensions==10.7.*

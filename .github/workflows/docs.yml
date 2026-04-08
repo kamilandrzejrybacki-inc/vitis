@@ -40,14 +40,12 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: docs/requirements.txt
 
       - name: Install MkDocs Material + plugins
         run: |
           python -m pip install --upgrade pip
-          pip install \
-            mkdocs-material==9.5.* \
-            mkdocs-awesome-pages-plugin==2.9.* \
-            pymdown-extensions==10.7.*
+          pip install -r docs/requirements.txt
 
       - name: Build site
         run: mkdocs build --strict --verbose --site-dir _site
