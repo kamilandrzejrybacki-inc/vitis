@@ -19,5 +19,11 @@ type Store interface {
 	AppendConversationTurn(ctx context.Context, turn model.ConversationTurn) error
 	PeekConversationTurns(ctx context.Context, conversationID string, lastN int) ([]model.ConversationTurn, error)
 
+	// Query methods for the API layer.
+	ListSessions(ctx context.Context, filter model.SessionFilter) ([]model.Session, int, error)
+	ListConversations(ctx context.Context, filter model.ConversationFilter) ([]model.Conversation, int, error)
+	GetSession(ctx context.Context, sessionID string) (*model.Session, error)
+	GetConversation(ctx context.Context, conversationID string) (*model.Conversation, error)
+
 	Close() error
 }

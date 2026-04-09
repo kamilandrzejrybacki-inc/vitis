@@ -182,3 +182,19 @@ func (s *Store) AppendConversationTurn(ctx context.Context, turn model.Conversat
 func (s *Store) PeekConversationTurns(ctx context.Context, conversationID string, lastN int) ([]model.ConversationTurn, error) {
 	return nil, errors.New("postgres backend: PeekConversationTurns not implemented in M1 (plan 3 adds it)")
 }
+
+func (s *Store) ListSessions(_ context.Context, _ model.SessionFilter) ([]model.Session, int, error) {
+	return nil, 0, fmt.Errorf("not implemented")
+}
+
+func (s *Store) ListConversations(_ context.Context, _ model.ConversationFilter) ([]model.Conversation, int, error) {
+	return nil, 0, fmt.Errorf("not implemented")
+}
+
+func (s *Store) GetSession(_ context.Context, _ string) (*model.Session, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *Store) GetConversation(_ context.Context, _ string) (*model.Conversation, error) {
+	return nil, fmt.Errorf("not implemented")
+}
