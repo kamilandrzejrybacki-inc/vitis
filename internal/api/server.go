@@ -55,8 +55,13 @@ func (s *Server) Addr() string {
 
 // ListenAndServe starts serving and blocks until ctx is cancelled.
 func (s *Server) ListenAndServe(ctx context.Context) error {
+	var h http.Handler = s.mux
+	h = corsMiddleware(s.cfg.CORSOrigin, h)
+	if s.cfg.APIKey != "" {
+		h = apiKeyMiddleware(s.cfg.APIKey, h)
+	}
 	srv := &http.Server{
-		Handler:      s.mux,
+		Handler:      h,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 0, // SSE streams need no write timeout
 	}
