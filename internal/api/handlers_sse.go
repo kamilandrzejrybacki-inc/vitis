@@ -9,20 +9,37 @@ import (
 
 const maxSSEConnections = 10
 
-func (s *Server) handleConversationStream(w http.ResponseWriter, r *http.Request) {
+// acquireSSESlot atomically increments the SSE connection counter if below the
+// limit. Returns true if the slot was acquired; writes 503 and returns false
+// when the limit is already reached.
+func (s *Server) acquireSSESlot(w http.ResponseWriter) bool {
 	for {
 		cur := s.sseCount.Load()
 		if cur >= maxSSEConnections {
 			http.Error(w, "too many SSE connections", http.StatusServiceUnavailable)
-			return
+			return false
 		}
 		if s.sseCount.CompareAndSwap(cur, cur+1) {
-			break
+			return true
 		}
+	}
+}
+
+func (s *Server) handleConversationStream(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !isValidID(id) {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	if !s.acquireSSESlot(w) {
+		return
 	}
 	defer s.sseCount.Add(-1)
 
-	id := r.PathValue("id")
+	// Disable write timeout for SSE (streaming connection).
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -71,17 +88,14 @@ func (s *Server) handleConversationStream(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleConversationsLifecycleStream(w http.ResponseWriter, r *http.Request) {
-	for {
-		cur := s.sseCount.Load()
-		if cur >= maxSSEConnections {
-			http.Error(w, "too many SSE connections", http.StatusServiceUnavailable)
-			return
-		}
-		if s.sseCount.CompareAndSwap(cur, cur+1) {
-			break
-		}
+	if !s.acquireSSESlot(w) {
+		return
 	}
 	defer s.sseCount.Add(-1)
+
+	// Disable write timeout for SSE (streaming connection).
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")

@@ -37,35 +37,24 @@ func TestCORSMiddleware_HandlesPreflightOPTIONS(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, rr.Code)
 }
 
-func TestAPIKeyMiddleware_AllowsLocalhostWithoutKey(t *testing.T) {
+func TestAPIKeyMiddleware_RequiresBearerKey(t *testing.T) {
 	handler := apiKeyMiddleware("secret-key", http.HandlerFunc(okHandler))
 	req := httptest.NewRequest("GET", "/", nil)
-	req.RemoteAddr = "127.0.0.1:12345"
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusOK, rr.Code)
-}
-
-func TestAPIKeyMiddleware_RejectsRemoteWithoutKey(t *testing.T) {
-	handler := apiKeyMiddleware("secret-key", http.HandlerFunc(okHandler))
-	req := httptest.NewRequest("GET", "/", nil)
-	req.RemoteAddr = "10.0.0.5:12345"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
 
-func TestAPIKeyMiddleware_AllowsRemoteWithValidBearerKey(t *testing.T) {
+func TestAPIKeyMiddleware_AllowsValidBearerKey(t *testing.T) {
 	handler := apiKeyMiddleware("secret-key", http.HandlerFunc(okHandler))
 	req := httptest.NewRequest("GET", "/", nil)
-	req.RemoteAddr = "10.0.0.5:12345"
 	req.Header.Set("Authorization", "Bearer secret-key")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
-func TestAPIKeyMiddleware_NoKeyConfigured_AllowsAll(t *testing.T) {
+func TestAPIKeyMiddleware_AllowsAllWhenNoKeyConfigured(t *testing.T) {
 	handler := apiKeyMiddleware("", http.HandlerFunc(okHandler))
 	req := httptest.NewRequest("GET", "/", nil)
 	req.RemoteAddr = "10.0.0.5:12345"

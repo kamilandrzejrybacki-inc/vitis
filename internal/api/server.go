@@ -66,7 +66,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	srv := &http.Server{
 		Handler:      h,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 0, // SSE streams need no write timeout
+		WriteTimeout: 30 * time.Second, // REST timeout; SSE handlers override per-response via SetWriteDeadline
 	}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Serve(s.listener) }()

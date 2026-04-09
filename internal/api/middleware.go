@@ -22,7 +22,7 @@ func corsMiddleware(origin string, next http.Handler) http.Handler {
 	})
 }
 
-// apiKeyMiddleware enforces Bearer token auth for non-localhost requests.
+// apiKeyMiddleware enforces Bearer token auth for all requests.
 // If key is empty, all requests are allowed.
 func apiKeyMiddleware(key string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -30,16 +30,6 @@ func apiKeyMiddleware(key string, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		host := r.RemoteAddr
-		if idx := strings.LastIndex(host, ":"); idx != -1 {
-			host = host[:idx]
-		}
-		// Allow localhost without auth
-		if host == "127.0.0.1" || host == "::1" || host == "localhost" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		// Require Bearer token
 		auth := r.Header.Get("Authorization")
 		if !strings.HasPrefix(auth, "Bearer ") || strings.TrimPrefix(auth, "Bearer ") != key {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)

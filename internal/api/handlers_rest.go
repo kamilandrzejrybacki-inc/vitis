@@ -2,18 +2,21 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
 
 const maxLimit = 500
 
-// isValidID returns false if the id looks like a path traversal attempt.
+var validIDRe = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
+
+// isValidID returns false if the id does not match the strict allowlist pattern.
 func isValidID(id string) bool {
-	return id != "" && !strings.Contains(id, "/") && !strings.Contains(id, "..")
+	return validIDRe.MatchString(id)
 }
 
 // ListResponse is the standard envelope for list endpoints.
@@ -63,7 +66,8 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	sessions, total, err := s.store.ListSessions(r.Context(), filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("ERROR: list sessions: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	if sessions == nil {
@@ -82,7 +86,8 @@ func (s *Server) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	}
 	sess, err := s.store.GetSession(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("ERROR: get session: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	if sess == nil {
@@ -101,7 +106,8 @@ func (s *Server) handleListConversations(w http.ResponseWriter, r *http.Request)
 	}
 	convs, total, err := s.store.ListConversations(r.Context(), filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("ERROR: list conversations: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	if convs == nil {
@@ -120,7 +126,8 @@ func (s *Server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 	}
 	conv, err := s.store.GetConversation(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("ERROR: get conversation: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	if conv == nil {
@@ -138,7 +145,8 @@ func (s *Server) handleListTurns(w http.ResponseWriter, r *http.Request) {
 	}
 	turns, err := s.store.PeekConversationTurns(r.Context(), id, 0)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("ERROR: list turns: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	if turns == nil {

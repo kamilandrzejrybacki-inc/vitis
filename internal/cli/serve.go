@@ -65,6 +65,10 @@ func ServeCommand(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		StoreRoot:  cleanPath,
 	}
 
+	if cfg.APIKey == "" {
+		fmt.Fprintln(stderr, "WARNING: --api-key not set; API is unauthenticated")
+	}
+
 	srv, err := api.NewServer(cfg, store)
 	if err != nil {
 		fmt.Fprintf(stderr, "serve: server init: %v\n", err)
