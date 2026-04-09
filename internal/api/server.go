@@ -17,6 +17,9 @@ type Config struct {
 	Port       int
 	APIKey     string
 	CORSOrigin string
+	// StoreRoot is the file-store root directory used by the SSE watcher.
+	// Leave empty to disable file watching (SSE will still deliver heartbeats).
+	StoreRoot string
 }
 
 // Server is the Vitis HTTP API server.
@@ -86,6 +89,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/v1/conversations", s.handleListConversations)
 	s.mux.HandleFunc("GET /api/v1/conversations/{id}", s.handleGetConversation)
 	s.mux.HandleFunc("GET /api/v1/conversations/{id}/turns", s.handleListTurns)
+	// SSE streaming endpoints — lifecycle stream registered before wildcard to win on exact match.
+	s.mux.HandleFunc("GET /api/v1/conversations/stream", s.handleConversationsLifecycleStream)
+	s.mux.HandleFunc("GET /api/v1/conversations/{id}/stream", s.handleConversationStream)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
