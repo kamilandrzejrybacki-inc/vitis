@@ -81,6 +81,11 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /api/v1/status", s.handleStatus)
+	s.mux.HandleFunc("GET /api/v1/sessions", s.handleListSessions)
+	s.mux.HandleFunc("GET /api/v1/sessions/{id}", s.handleGetSession)
+	s.mux.HandleFunc("GET /api/v1/conversations", s.handleListConversations)
+	s.mux.HandleFunc("GET /api/v1/conversations/{id}", s.handleGetConversation)
+	s.mux.HandleFunc("GET /api/v1/conversations/{id}/turns", s.handleListTurns)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
