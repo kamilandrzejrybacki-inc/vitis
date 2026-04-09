@@ -144,3 +144,41 @@ func TestGetConversation_NotFound(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, got)
 }
+
+func TestListConversations_FilterByStatus(t *testing.T) {
+	s := newTestStore(t, false)
+	ctx := context.Background()
+
+	running := model.ConversationStatus("running")
+	completed := model.ConversationStatus("completed")
+
+	require.NoError(t, s.CreateConversation(ctx, model.Conversation{
+		ID: "c1", Status: running, CreatedAt: time.Now(), MaxTurns: 10,
+	}))
+	require.NoError(t, s.CreateConversation(ctx, model.Conversation{
+		ID: "c2", Status: completed, CreatedAt: time.Now(), MaxTurns: 10,
+	}))
+
+	convs, total, err := s.ListConversations(ctx, model.ConversationFilter{Status: &running, Limit: 10})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, convs, 1)
+	assert.Equal(t, "c1", convs[0].ID)
+}
+
+func TestListConversations_Pagination(t *testing.T) {
+	s := newTestStore(t, false)
+	ctx := context.Background()
+
+	for i := 0; i < 5; i++ {
+		require.NoError(t, s.CreateConversation(ctx, model.Conversation{
+			ID: fmt.Sprintf("c%d", i), Status: model.ConversationStatus("running"),
+			CreatedAt: time.Now(), MaxTurns: 10,
+		}))
+	}
+
+	convs, total, err := s.ListConversations(ctx, model.ConversationFilter{Limit: 2, Offset: 1})
+	require.NoError(t, err)
+	assert.Equal(t, 5, total)
+	assert.Len(t, convs, 2)
+}
