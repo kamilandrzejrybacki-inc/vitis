@@ -54,6 +54,18 @@ func (s *fakeStore) AppendConversationTurn(_ context.Context, _ model.Conversati
 func (s *fakeStore) PeekConversationTurns(_ context.Context, _ string, _ int) ([]model.ConversationTurn, error) {
 	return nil, nil
 }
+func (s *fakeStore) ListSessions(_ context.Context, _ model.SessionFilter) ([]model.Session, int, error) {
+	return nil, 0, nil
+}
+func (s *fakeStore) ListConversations(_ context.Context, _ model.ConversationFilter) ([]model.Conversation, int, error) {
+	return nil, 0, nil
+}
+func (s *fakeStore) GetSession(_ context.Context, _ string) (*model.Session, error) {
+	return nil, nil
+}
+func (s *fakeStore) GetConversation(_ context.Context, _ string) (*model.Conversation, error) {
+	return nil, nil
+}
 func (s *fakeStore) Close() error { return nil }
 
 type fakeRuntime struct {

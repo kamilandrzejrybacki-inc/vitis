@@ -6,9 +6,27 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
+
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (s *safeBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+func (s *safeBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
+}
 
 func TestServeCommand_ParsesFlags(t *testing.T) {
 	// Port 0 lets the OS assign a free port; we cancel immediately after the
@@ -16,7 +34,7 @@ func TestServeCommand_ParsesFlags(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	dir := t.TempDir()
-	var stdout, stderr bytes.Buffer
+	var stdout, stderr safeBuffer
 
 	done := make(chan int, 1)
 	go func() {
@@ -59,7 +77,7 @@ func TestServeCommand_StartsServer(t *testing.T) {
 	defer cancel()
 
 	dir := t.TempDir()
-	var stdout, stderr bytes.Buffer
+	var stdout, stderr safeBuffer
 
 	done := make(chan int, 1)
 	go func() {
