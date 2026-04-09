@@ -4,12 +4,27 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+// freePort finds a free TCP port by briefly binding to :0 and reading the
+// assigned port number before releasing the listener.
+func freePort(t *testing.T) string {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("freePort: %v", err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	return strconv.Itoa(port)
+}
 
 type safeBuffer struct {
 	mu  sync.Mutex
@@ -29,8 +44,8 @@ func (s *safeBuffer) String() string {
 }
 
 func TestServeCommand_ParsesFlags(t *testing.T) {
-	// Port 0 lets the OS assign a free port; we cancel immediately after the
-	// server announces its address so the test is fast and deterministic.
+	// Find a free port first so we can pass a valid port to the CLI.
+	port := freePort(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	dir := t.TempDir()
@@ -39,7 +54,7 @@ func TestServeCommand_ParsesFlags(t *testing.T) {
 	done := make(chan int, 1)
 	go func() {
 		done <- ServeCommand(ctx, []string{
-			"--port", "0",
+			"--port", port,
 			"--log-path", dir,
 			"--api-key", "testkey",
 			"--cors-origin", "http://localhost:3000",
@@ -73,6 +88,7 @@ func TestServeCommand_ParsesFlags(t *testing.T) {
 }
 
 func TestServeCommand_StartsServer(t *testing.T) {
+	port := freePort(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -82,7 +98,7 @@ func TestServeCommand_StartsServer(t *testing.T) {
 	done := make(chan int, 1)
 	go func() {
 		done <- ServeCommand(ctx, []string{
-			"--port", "0",
+			"--port", port,
 			"--log-path", dir,
 		}, &stdout, &stderr)
 	}()
