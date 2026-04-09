@@ -14,7 +14,7 @@ func main() {
 
 func run(ctx context.Context, args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: vitis <run|peek|converse|doctor>")
+		fmt.Fprintln(os.Stderr, "usage: vitis <run|peek|converse|doctor|serve>")
 		return 2
 	}
 
@@ -27,6 +27,8 @@ func run(ctx context.Context, args []string) int {
 		return cli.ConverseCommand(ctx, args[1:], os.Stdout, os.Stderr)
 	case "doctor":
 		return cli.DoctorCommand(ctx, args[1:], os.Stdout, os.Stderr)
+	case "serve":
+		return cli.ServeCommand(ctx, args[1:], os.Stdout, os.Stderr)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", args[0])
 		return 2
