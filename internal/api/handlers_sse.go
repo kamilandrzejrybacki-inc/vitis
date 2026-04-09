@@ -10,11 +10,16 @@ import (
 const maxSSEConnections = 10
 
 func (s *Server) handleConversationStream(w http.ResponseWriter, r *http.Request) {
-	if s.sseCount.Load() >= maxSSEConnections {
-		http.Error(w, "too many SSE connections", http.StatusServiceUnavailable)
-		return
+	for {
+		cur := s.sseCount.Load()
+		if cur >= maxSSEConnections {
+			http.Error(w, "too many SSE connections", http.StatusServiceUnavailable)
+			return
+		}
+		if s.sseCount.CompareAndSwap(cur, cur+1) {
+			break
+		}
 	}
-	s.sseCount.Add(1)
 	defer s.sseCount.Add(-1)
 
 	id := r.PathValue("id")
@@ -66,11 +71,16 @@ func (s *Server) handleConversationStream(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleConversationsLifecycleStream(w http.ResponseWriter, r *http.Request) {
-	if s.sseCount.Load() >= maxSSEConnections {
-		http.Error(w, "too many SSE connections", http.StatusServiceUnavailable)
-		return
+	for {
+		cur := s.sseCount.Load()
+		if cur >= maxSSEConnections {
+			http.Error(w, "too many SSE connections", http.StatusServiceUnavailable)
+			return
+		}
+		if s.sseCount.CompareAndSwap(cur, cur+1) {
+			break
+		}
 	}
-	s.sseCount.Add(1)
 	defer s.sseCount.Add(-1)
 
 	w.Header().Set("Content-Type", "text/event-stream")

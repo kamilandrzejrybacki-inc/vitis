@@ -35,7 +35,7 @@ func ServeCommand(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return 2
 	}
 
-	if *port < 0 || *port > 65535 {
+	if *port < 1 || *port > 65535 {
 		fmt.Fprintln(stderr, "serve: --port must be in [1,65535]")
 		return 2
 	}

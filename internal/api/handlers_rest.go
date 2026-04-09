@@ -4,9 +4,17 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/kamilandrzejrybacki-inc/vitis/internal/model"
 )
+
+const maxLimit = 500
+
+// isValidID returns false if the id looks like a path traversal attempt.
+func isValidID(id string) bool {
+	return id != "" && !strings.Contains(id, "/") && !strings.Contains(id, "..")
+}
 
 // ListResponse is the standard envelope for list endpoints.
 type ListResponse[T any] struct {
@@ -32,6 +40,9 @@ func parsePagination(r *http.Request) (limit, offset int) {
 	limit = 20
 	if v := r.URL.Query().Get("limit"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			if n > maxLimit {
+				n = maxLimit
+			}
 			limit = n
 		}
 	}
@@ -65,6 +76,10 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !isValidID(id) {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
 	sess, err := s.store.GetSession(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -99,6 +114,10 @@ func (s *Server) handleListConversations(w http.ResponseWriter, r *http.Request)
 
 func (s *Server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !isValidID(id) {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
 	conv, err := s.store.GetConversation(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -113,6 +132,10 @@ func (s *Server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListTurns(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !isValidID(id) {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
 	turns, err := s.store.PeekConversationTurns(r.Context(), id, 0)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
